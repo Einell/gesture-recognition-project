@@ -1,13 +1,10 @@
 import math
 import os
 import time
-import pyautogui
-import cv2
 from pynput.keyboard import Key, Controller
 import numpy as np
 import mouse_controller as mc
 
-# 初始化键盘控制器
 keyboard = Controller()
 
 
@@ -51,98 +48,99 @@ class VolumeController:
 # 实例化音量控制器
 VOLUME_CONTROLLER = VolumeController()
 
-# 定义手势动作执行函数
-def execute_gesture_action(gesture, cap, display_img,hand_landmarks=None):
-    if gesture == 'right_mouse':
-        # 只有在有手部关键点数据时才执行移动操作
-        if hand_landmarks:
-            mc.move_mouse(hand_landmarks)
-            # 打印信息，以便在终端中追踪操作
-            print("执行鼠标光标移动操作")
-        return
-
-    elif gesture == 'right_mouse_left_click':
-        mc.left_click()
-        print("执行鼠标左键点击操作")
-        # 添加短暂延迟，防止手势短暂波动造成的连续点击
-        time.sleep(0.2)
-        return
-
-    elif gesture == 'right_mouse_right_click':
-        mc.right_click()
-        print("执行鼠标右键点击操作")
-        time.sleep(0.2)
-        return
+def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
     try:
-        if gesture == 'right_thumb_up' or 'left_thumb_up':  # 大拇指上
-            keyboard.press(Key.up)
-            keyboard.release(Key.up)
-            print("上一页/向上滚动")
+        # --- 1. 需要 hand_landmarks 的连续操作 (放在最前) ---
+        if gesture == 'right_mouse':
+            if hand_landmarks:
+                mc.move_mouse(hand_landmarks)
+            return
 
-        elif gesture == 'right_thumb_down' or 'left_thumb_down':  # 大拇指下
-            keyboard.press(Key.down)
-            keyboard.release(Key.down)
-            print("下一页/向下滚动")
-
-        elif gesture == 'right_thumb_right' or 'left_thumb_right':  # 大拇指右
-            keyboard.press(Key.right)
-            keyboard.release(Key.right)
-            print("右一页/快进")
-
-        elif gesture == 'right_thumb_left' or 'left_thumb_left':  # 大拇指左
-            keyboard.press(Key.left)
-            keyboard.release(Key.left)
-            print("左一页/快退")
+        elif gesture == 'right_mouse_roll':
+            if hand_landmarks:
+                mc.scroll_mouse(hand_landmarks)
+            return
 
         elif gesture == 'volume_control':
             if hand_landmarks:
                 VOLUME_CONTROLLER.set_volume(hand_landmarks)
             return
 
-        elif gesture == 'left_back':  #返回
+        # --- 2. 鼠标点击 (短延迟) ---
+        elif gesture == 'right_mouse_left_click':
+            mc.left_click()
+            print("执行左键点击")
+            time.sleep(0.3)
+            return
+
+        elif gesture == 'right_mouse_right_click':
+            mc.right_click()
+            print("执行右键点击")
+            time.sleep(0.3)
+            return
+
+        # --- 3. 键盘映射 (长延迟) ---
+        # 【重要修复】: 必须写成 gesture == 'A' or gesture == 'B'
+        elif gesture == 'right_thumb_up                        ' or gesture == 'left_thumb_up':
+            keyboard.press(Key.up)
+            keyboard.release(Key.up)
+            print("上一页/向上滚动")
+            time.sleep(1.0)
+
+        elif gesture == 'right_thumb_down' or gesture == 'left_thumb_down':
+            keyboard.press(Key.down)
+            keyboard.release(Key.down)
+            print("下一页/向下滚动")
+            time.sleep(1.0)
+
+        elif gesture == 'right_thumb_right' or gesture == 'left_thumb_right':
+            keyboard.press(Key.right)
+            keyboard.release(Key.right)
+            print("右一页/快进")
+            time.sleep(1.0)
+
+        elif gesture == 'right_thumb_left' or gesture == 'left_thumb_left':
+            keyboard.press(Key.left)
+            keyboard.release(Key.left)
+            print("左一页/快退")
+            time.sleep(1.0)
+
+        elif gesture == 'left_back':
             keyboard.press(Key.esc)
             keyboard.release(Key.esc)
             print("返回")
+            time.sleep(1.0)
 
-        elif gesture == 'left_palm' or 'right_palm':  # 音乐、视频暂停/继续
-            # Space控制暂停/继续
+        # 【重要修复】
+        elif gesture == 'left_palm' or gesture == 'right_palm':
             keyboard.press(Key.space)
             keyboard.release(Key.space)
-            print("执行暂停/继续操作")
+            print("暂停/继续")
+            time.sleep(1.0)
 
-        elif gesture == 'right_ok' or 'left_ok':    # 保存/确认
+        # 【重要修复】
+        elif gesture == 'right_ok' or gesture == 'left_ok':
+            # 示例：保存操作
             with keyboard.pressed(Key.cmd):
                 keyboard.press('s')
                 keyboard.release('s')
+            print("执行保存")
+            time.sleep(1.0)
 
-            keyboard.press(Key.enter)
-            keyboard.release(Key.enter)
-            print("执行保存操作/确认")
-
-        elif gesture == 'left_fist' or 'right_fist': # 拳头
-            # 进入/退出全屏
+        # 【重要修复】
+        elif gesture == 'left_fist' or gesture == 'right_fist':
             keyboard.press('f')
             keyboard.release('f')
-            print("等待/全屏")
+            print("全屏切换")
+            time.sleep(1.0)
 
-        elif gesture == 'left_L':  # 截屏
-            # 截屏快捷键Command + Shift + 3
+        elif gesture == 'left_L':
             with keyboard.pressed(Key.cmd):
                 with keyboard.pressed(Key.shift):
                     keyboard.press('3')
                     keyboard.release('3')
-            print("执行截屏操作")
-
-        elif gesture == 'left_back':  # 返回
-            # esc
-            keyboard.press(Key.esc)
-            keyboard.release(Key.esc)
-            print("执行返回操作")
-
-
-
+            print("执行截屏")
+            time.sleep(1.0)
 
     except Exception as e:
         print(f"执行手势操作时出错: {e}")
-
-

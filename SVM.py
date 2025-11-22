@@ -49,7 +49,7 @@ print(f"训练集: {X_train.shape}, 测试集: {X_test.shape}")
 print("\n正在初始化并训练SVM模型...")
 # 参数说明:
 # C: 惩罚系数，控制模型复杂度；kernel: 核函数；gamma: 'rbf'核的带宽参数；class_weight: 'balanced' 会给样本量较少的类别赋予更大的权重，有助于处理不平衡数据集
-svm_classifier = SVC(C=1.0, kernel='rbf', gamma='scale', class_weight='balanced', random_state=random_state)
+svm_classifier = SVC(C=1.0, kernel='rbf', gamma='scale', class_weight='balanced', random_state=random_state,probability=True)
 
 # 训练模型
 svm_classifier.fit(X_train, y_train)
