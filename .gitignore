@@ -6,3 +6,25 @@ __pycache__/
 .env/
 venv/
 .ipynb_checkpoints/
+
+# 1. 忽略 Python 虚拟环境（所有常见虚拟环境目录都写上，防止误删）
+venv/
+env/
+gesture_env/
+.env/
+.venv/
+
+# 2. 忽略 Python 编译文件、缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dylib  # 就是你那个超 200MB 的文件类型
+*.pyd
+
+# 3. 忽略其他无用文件（可选，推荐加上）
+.DS_Store  # Mac 系统自动生成的垃圾文件
+*.log      # 日志文件
+*.tmp      # 临时文件
+.vscode/   # VS Code 配置文件（如果团队不用统一配置，就忽略）
+*.ipynb_checkpoints/  # Jupyter Notebook 缓存
