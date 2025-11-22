@@ -10,100 +10,93 @@ pyautogui.FAILSAFE = False
 class GestureMouseController:
     """
     一个专门用于手势控制鼠标的类。
-    处理坐标映射、移动平滑、点击和滚动操作。
+    已集成 Frame Reduction (帧区域缩减) 和平滑算法。
     """
 
-    # 获取主屏幕分辨率
-    try:
-        W_SCREEN, H_SCREEN = screeninfo.get_monitors()[0].width, screeninfo.get_monitors()[0].height
-    except:
-        W_SCREEN, H_SCREEN = 1920, 1080
-
-        # 移动平滑因子
-    SMOOTHING_FACTOR = 4
-
-    # 追踪上一帧的鼠标位置，用于平滑移动
-    prev_x, prev_y = 0, 0
-    curr_x, curr_y = 0, 0
-
-    # --- 新增：用于滚动的变量 ---
-    # 追踪上一帧食指尖的归一化Y坐标用于滚动计算
-    prev_scroll_y = 0
-    # 滚动灵敏度乘数，越大滚动越快
-    SCROLL_SENSITIVITY = 150
-    # 滚动阈值，忽略微小的抖动
-    SCROLL_THRESHOLD = 0.015
-
-    # 摄像头画面有效区域 (ROI)
-    CAM_X_MIN, CAM_X_MAX = 0.1, 0.9
-    CAM_Y_MIN, CAM_Y_MAX = 0.1, 0.8
-
     def __init__(self):
+        # 获取主屏幕分辨率
         try:
             self.W_SCREEN, self.H_SCREEN = screeninfo.get_monitors()[0].width, screeninfo.get_monitors()[0].height
         except:
-            pass
+            self.W_SCREEN, self.H_SCREEN = 1920, 1080
 
-    # --- 现有的鼠标移动函数 (保持不变) ---
-    def right_mouse(self, hand_landmarks):
+        # ================= 虚拟鼠标核心参数 =================
+        self.frameR = 200  # Frame Reduction: 帧缩减像素 (值越大，移动鼠标所需的动作幅度越小)
+        self.smoothening = 5  # 平滑系数 (值越大越平滑，但延迟越高)
+        # ==================================================
+
+        # 追踪上一帧的鼠标位置 (用于平滑)
+        self.plocX, self.plocY = 0, 0  # Previous Location
+        self.clocX, self.clocY = 0, 0  # Current Location
+
+        # 滚动相关变量
+        self.prev_scroll_y = 0
+        self.SCROLL_SENSITIVITY = 150
+        self.SCROLL_THRESHOLD = 0.015
+
+    def right_mouse(self, hand_landmarks, img_shape):
+        """
+        移动鼠标逻辑
+        :param hand_landmarks: 手部关键点
+        :param img_shape: 摄像头画面的形状 (height, width, channels) 用于计算像素坐标
+        """
         if not hand_landmarks:
             return
+
+        hCam, wCam, _ = img_shape
+
+        # 1. 获取食指指尖 (Landmark 8) 的坐标
+        # 注意：这里我们将其转换为像素坐标，以便使用 Frame Reduction 逻辑
         index_tip = hand_landmarks.landmark[8]
-        norm_x, norm_y = index_tip.x, index_tip.y
+        x1 = int(index_tip.x * wCam)
+        y1 = int(index_tip.y * hCam)
 
-        target_x = np.interp(norm_x, [self.CAM_X_MIN, self.CAM_X_MAX], [0, self.W_SCREEN])
-        target_y = np.interp(norm_y, [self.CAM_Y_MIN, self.CAM_Y_MAX], [0, self.H_SCREEN])
-        target_x = np.clip(target_x, 0, self.W_SCREEN)
-        target_y = np.clip(target_y, 0, self.H_SCREEN)
+        # 2. 坐标转换 (核心逻辑：将 FrameR 区域映射到屏幕分辨率)
+        # np.interp(当前值, [输入范围下限, 输入范围上限], [输出范围下限, 输出范围上限])
 
-        if self.prev_x == 0 and self.prev_y == 0:
-            self.prev_x, self.prev_y = target_x, target_y
+        # X轴映射：注意 wCam - self.frameR 是为了处理镜像翻转后的逻辑
+        # 如果你觉得鼠标左右反了，可以调整 x1 的输入范围
+        x3 = np.interp(x1, (self.frameR, wCam - self.frameR), (0, self.W_SCREEN))
 
-        self.curr_x = self.prev_x + (target_x - self.prev_x) / self.SMOOTHING_FACTOR
-        self.curr_y = self.prev_y + (target_y - self.prev_y) / self.SMOOTHING_FACTOR
+        # Y轴映射
+        y3 = np.interp(y1, (self.frameR, hCam - self.frameR), (0, self.H_SCREEN))
 
-        pyautogui.moveTo(int(self.curr_x), int(self.curr_y))
-        self.prev_x, self.prev_y = self.curr_x, self.curr_y
+        # 3. 平滑处理 (Smoothen Values)
+        # 当前位置 = 上次位置 + (目标位置 - 上次位置) / 平滑系数
+        self.clocX = self.plocX + (x3 - self.plocX) / self.smoothening
+        self.clocY = self.plocY + (y3 - self.plocY) / self.smoothening
 
-    # --- 现有的点击函数 (保持不变) ---
+        # 4. 边界限制 (防止坐标溢出)
+        self.clocX = np.clip(self.clocX, 0, self.W_SCREEN)
+        self.clocY = np.clip(self.clocY, 0, self.H_SCREEN)
+
+        # 5. 移动鼠标
+        # pyautogui.moveTo(x, y)
+        # 使用 int() 确保坐标是整数
+        final_x = self.W_SCREEN - self.clocX
+        pyautogui.moveTo(self.clocX, self.clocY)
+
+        # 6. 更新上一帧位置
+        self.plocX, self.plocY = self.clocX, self.clocY
+
+    # --- 点击和滚动保持不变，或者根据需要微调 ---
     def right_mouse_left_click(self):
         pyautogui.click(button='left')
 
     def right_mouse_right_click(self):
         pyautogui.click(button='right')
 
-    # --- 新增：鼠标滚动函数 ---
     def scroll_mouse(self, hand_landmarks):
-        """
-        根据食指指尖的垂直移动来控制鼠标滚动。
-        手指向上移动 -> 向上滚动页面
-        手指向下移动 -> 向下滚动页面
-        """
         if not hand_landmarks:
             return
-
-        # 使用食指指尖 (Landmark 8) 的Y坐标
         current_scroll_y = hand_landmarks.landmark[8].y
-
-        # 如果是第一次调用，初始化上一帧位置
         if self.prev_scroll_y == 0:
             self.prev_scroll_y = current_scroll_y
             return
-
-        # 计算Y轴移动差值 (注意：Y轴向下增加)
-        # 如果现在Y < 之前Y，说明手指向上移动了，delta_y 为正
         delta_y = self.prev_scroll_y - current_scroll_y
-
-        # 只有当移动距离超过阈值时才执行滚动，避免抖动
         if abs(delta_y) > self.SCROLL_THRESHOLD:
-            # 计算滚动量：差值 * 灵敏度
-            # pyautogui.scroll 中正值代表向上滚动，负值代表向下滚动
             scroll_amount = int(delta_y * self.SCROLL_SENSITIVITY)
-
             pyautogui.scroll(scroll_amount)
-            # print(f"执行滚动: {scroll_amount}") # 调试用
-
-        # 更新上一帧位置，用于下一次计算
         self.prev_scroll_y = current_scroll_y
 
 
@@ -112,8 +105,9 @@ MOUSE_CONTROLLER = GestureMouseController()
 
 
 # --- 模块对外接口 ---
-def move_mouse(hand_landmarks):
-    MOUSE_CONTROLLER.right_mouse(hand_landmarks)
+def move_mouse(hand_landmarks, img_shape):
+    # 注意：这里新增了 img_shape 参数
+    MOUSE_CONTROLLER.right_mouse(hand_landmarks, img_shape)
 
 
 def left_click():
@@ -124,6 +118,5 @@ def right_click():
     MOUSE_CONTROLLER.right_mouse_right_click()
 
 
-# 新增接口
 def scroll_mouse(hand_landmarks):
     MOUSE_CONTROLLER.scroll_mouse(hand_landmarks)

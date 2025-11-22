@@ -49,11 +49,12 @@ class VolumeController:
 VOLUME_CONTROLLER = VolumeController()
 
 def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
+    img_shape = display_img.shape if display_img is not None else (480, 640, 3)
     try:
         # --- 1. 需要 hand_landmarks 的连续操作 (放在最前) ---
         if gesture == 'right_mouse':
             if hand_landmarks:
-                mc.move_mouse(hand_landmarks)
+                mc.move_mouse(hand_landmarks,img_shape)
             return
 
         elif gesture == 'right_mouse_roll':
@@ -62,15 +63,15 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
             return
 
         elif gesture == 'volume_control':
-            if hand_landmarks:
-                VOLUME_CONTROLLER.set_volume(hand_landmarks)
+            #if hand_landmarks:
+                #VOLUME_CONTROLLER.set_volume(hand_landmarks)
             return
 
         # --- 2. 鼠标点击 (短延迟) ---
         elif gesture == 'right_mouse_left_click':
             mc.left_click()
             print("执行左键点击")
-            time.sleep(0.3)
+            time.sleep(0.2)
             return
 
         elif gesture == 'right_mouse_right_click':
