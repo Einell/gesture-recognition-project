@@ -76,39 +76,41 @@ while True:
 
     # 检测到手时处理
     if results.multi_hand_landmarks:
-        for idx, handLms in enumerate(results.multi_hand_landmarks):
-            mpDRaw.draw_landmarks(img, handLms, mpHands.HAND_CONNECTIONS, handLmsStyle, handConnStyle)
-            # 提取并归一化特征
-            feature = extract_and_normalize_features(handLms)
-            # 模型预测
-            pred_label = svm_model.predict(feature)[0]
-            detected_gesture = pred_label
-            recognition_results.append(f"Hand {idx + 1}: {pred_label}")
+        # 遍历检测到的所有手部（因为 max_num_hands=1，这里只会循环一次）
+        for hand_landmarks in results.multi_hand_landmarks:
 
-    # 连续识别逻辑与操作触发
-    if detected_gesture:
-        if detected_gesture == current_gesture:
-            # 相同手势则增加计数
-            consecutive_count += 1
-            # 显示连续识别计数
-            #cv2.putText(img, f"Count: {consecutive_count}/{CONSECUTIVE_THRESHOLD}",
-            #            (10, 140), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
+            # 1. 提取特征
+            features_to_predict = extract_and_normalize_features(hand_landmarks)
 
-            if consecutive_count >= CONSECUTIVE_THRESHOLD:
+            # 2. 预测手势
+            detected_gesture = svm_model.predict(features_to_predict)[0]
+
+            # 显示当前预测的手势 (可选)
+            cv2.putText(img, detected_gesture, (10, 110),
+                        cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3)
+
+            # 连续识别计数逻辑
+            if detected_gesture == current_gesture:
+                consecutive_count += 1
+
                 # 达到阈值，执行操作
-                control.execute_gesture_action(detected_gesture, cap, img)
-                # 重置计数
-                consecutive_count = 0
-                # 添加短暂延迟，防止连续触发
-                time.sleep(1.0)
-        else:
-            # 不同手势，重置计数
-            current_gesture = detected_gesture
-            consecutive_count = 1
+                if consecutive_count >= CONSECUTIVE_THRESHOLD:
+                    # 【关键修改位置】确保调用在 'for' 循环内部，这样 hand_landmarks 变量是可用的
+                    # 将当前手势、视频帧和手部关键点数据传递给控制函数
+                    control.execute_gesture_action(detected_gesture, cap, img, hand_landmarks=hand_landmarks)
 
-            # 显示连续识别计数
-            #cv2.putText(img, f"Count: {consecutive_count}/{CONSECUTIVE_THRESHOLD}",
-            #            (10, 140), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
+                    # 重置计数
+                    consecutive_count = 0
+                    # 添加短暂延迟，防止连续触发
+                    time.sleep(1.0)
+            else:
+                # 不同手势，重置计数
+                current_gesture = detected_gesture
+                consecutive_count = 1
+
+            # 绘制手部关键点
+            mpDRaw.draw_landmarks(img, hand_landmarks, mpHands.HAND_CONNECTIONS, handLmsStyle, handConnStyle)
+
     else:
         # 未检测到手势，重置
         current_gesture = None
