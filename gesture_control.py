@@ -80,12 +80,9 @@ def execute_gesture_action(gesture, cap, display_img):
 
         elif gesture == 'left_back':  # 截屏
             # 截屏快捷键Command + Shift + 3
-            with keyboard.pressed(Key.cmd):
-                with keyboard.pressed(Key.shift):
-                    keyboard.press('3')
-                    keyboard.release('3')
-            print("执行截屏操作")
-
+            keyboard.press(Key.enter)
+            keyboard.release(Key.enter)
+            print("执行返回操作")
 
 
     except Exception as e:
