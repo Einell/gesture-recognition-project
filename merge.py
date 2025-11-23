@@ -4,7 +4,7 @@ import os
 import glob
 
 # 目录
-csv_dir = 'gestures_csv'
+csv_dir = 'q'
 # 输出文件名称
 output_file = 'gestures.csv'
 # 共用的表头
