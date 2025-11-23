@@ -8,13 +8,13 @@ import numpy as np
 CSV_DIR = 'lstm'
 # 合并后的输出文件名称
 OUTPUT_FILE = 'gestures_lstm.csv'
-# 动态手势序列长度 (根据您的需求设置为 25)
-SEQUENCE_LENGTH = 25
-# 每帧的特征数量 (2只手 * 21点 * 3坐标 = 126)
+# 动态手势序列长度 (根据您的需求设置为 20)
+SEQUENCE_LENGTH = 20
+# 每帧的特征数量 (2只手 * 21点 * 2坐标 = 84)
 FEATURES_PER_FRAME = 84
 # ============================================
 
-TOTAL_FEATURES = SEQUENCE_LENGTH * FEATURES_PER_FRAME  # 3150
+TOTAL_FEATURES = SEQUENCE_LENGTH * FEATURES_PER_FRAME  # 1680
 
 
 def generate_column_names(total_features):
@@ -32,7 +32,7 @@ def main():
     # 生成列名
     column_names = generate_column_names(TOTAL_FEATURES)
     EXPECTED_COLUMNS = len(column_names)
-    print(f"预计列数: {EXPECTED_COLUMNS} (3150 特征 + 1 标签)")
+    print(f"预计列数: {EXPECTED_COLUMNS} (1680 特征 + 1 标签)")
 
     # 确保目录存在
     if not os.path.exists(CSV_DIR):

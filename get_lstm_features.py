@@ -6,7 +6,7 @@ import os
 import time
 
 # ================= 配置 =================
-GESTURE_LABEL = ' leftglide'  # 修改这里来录制不同的手势
+GESTURE_LABEL = 'open'  # 修改这里来录制不同的手势
 OUTPUT_CSV_PATH = f'lstm/{GESTURE_LABEL}.csv'
 SEQUENCE_LENGTH = 20  # 序列长度 (帧数)
 LANDMARKS_PER_HAND = 21

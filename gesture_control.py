@@ -29,32 +29,28 @@ class VolumeController:
         length = math.hypot(index.x - thumb.x, index.y - thumb.y)
 
         # 将距离映射到音量范围 (0 - 100)
-        # np.interp(当前值, [最小距离, 最大距离], [最小音量, 最大音量])
         vol = np.interp(length, [self.min_dist, self.max_dist], [0, 100])
-
-        # 取整
         vol = int(vol)
 
-        # 只有当音量变化超过一定阈值（例如2）时才执行系统命令，减少系统负担
+        # 只有当音量变化超过一定阈值（例如2）时才执行系统命令
         if abs(vol - self.last_volume) > 2:
             # macOS 设置音量的命令 (0-100)
             os.system(f"osascript -e 'set volume output volume {vol}'")
             print(f"音量调节: {vol}% (距离: {length:.3f})")
             self.last_volume = vol
 
-        # 可选：在指尖之间画线（如果在主循环中传递了img，可以在这里画，但为了解耦暂不包含）
-
 
 # 实例化音量控制器
 VOLUME_CONTROLLER = VolumeController()
 
+
 def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
     img_shape = display_img.shape if display_img is not None else (480, 640, 3)
     try:
-        # --- 1. 需要 hand_landmarks 的连续操作 (放在最前) ---
+        # ================= 1. 需要 hand_landmarks 的连续操作 =================
         if gesture == 'right_mouse':
             if hand_landmarks:
-                mc.move_mouse(hand_landmarks,img_shape)
+                mc.move_mouse(hand_landmarks, img_shape)
             return
 
         elif gesture == 'right_mouse_roll':
@@ -63,11 +59,58 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
             return
 
         elif gesture == 'volume_control':
-            #if hand_landmarks:
-                #VOLUME_CONTROLLER.set_volume(hand_landmarks)
+            # if hand_landmarks:
+            #    VOLUME_CONTROLLER.set_volume(hand_landmarks)
             return
 
-        # --- 2. 鼠标点击 (短延迟) ---
+        # ================= 2. 新增：LSTM 动态手势控制 =================
+        elif gesture == 'upglide':
+            keyboard.press(Key.up)
+            keyboard.release(Key.up)
+            print("LSTM: 上滑 (UpGlide)")
+            time.sleep(0.5)
+
+        elif gesture == 'downglide':
+            keyboard.press(Key.down)
+            keyboard.release(Key.down)
+            print("LSTM: 下滑 (DownGlide)")
+            time.sleep(0.5)
+
+        elif gesture == 'leftglide':
+            keyboard.press(Key.left)
+            keyboard.release(Key.left)
+            print("LSTM: 左滑 (LeftGlide)")
+            time.sleep(0.5)
+
+        elif gesture == 'rightglide':
+            keyboard.press(Key.right)
+            keyboard.release(Key.right)
+            print("LSTM: 右滑 (RightGlide)")
+            time.sleep(0.5)
+
+        elif gesture == 'open':
+            keyboard.press('f')
+            keyboard.release('f')
+            print("LSTM: 张开 (Open) -> F键")
+            time.sleep(0.5)
+
+        elif gesture == 'zoom_in':
+            with keyboard.pressed(Key.cmd):
+                keyboard.press('+')  # 如果无效，尝试改成 '='
+                keyboard.release('+')
+            print("LSTM: 放大 (Zoom In)")
+            time.sleep(0.5)
+
+        elif gesture == 'zoom_out':
+            with keyboard.pressed(Key.cmd):
+                keyboard.press('-')
+                keyboard.release('-')
+            print("LSTM: 缩小 (Zoom Out)")
+            time.sleep(0.5)
+
+        # ================= 3. 原有：SVM 静态手势控制 (完全保留) =================
+
+        # --- 鼠标点击 ---
         elif gesture == 'right_mouse_left_click':
             mc.left_click()
             print("执行左键点击")
@@ -80,60 +123,57 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
             time.sleep(0.3)
             return
 
-        # --- 3. 键盘映射 (长延迟) ---
-        # 【重要修复】: 必须写成 gesture == 'A' or gesture == 'B'
-        elif gesture == 'right_thumb_up                        ' or gesture == 'left_thumb_up':
+        # --- 方向控制 (Thumb) ---
+        elif gesture == 'right_thumb_up' or gesture == 'left_thumb_up':
             keyboard.press(Key.up)
             keyboard.release(Key.up)
-            print("上一页/向上滚动")
+            print("上一页/向上滚动 (Thumb Up)")
             time.sleep(1.0)
 
         elif gesture == 'right_thumb_down' or gesture == 'left_thumb_down':
             keyboard.press(Key.down)
             keyboard.release(Key.down)
-            print("下一页/向下滚动")
+            print("下一页/向下滚动 (Thumb Down)")
             time.sleep(1.0)
 
+        # 这里是你刚才丢失的左右方向
         elif gesture == 'right_thumb_right' or gesture == 'left_thumb_right':
             keyboard.press(Key.right)
             keyboard.release(Key.right)
-            print("右一页/快进")
+            print("右一页/快进 (Thumb Right)")
             time.sleep(1.0)
 
         elif gesture == 'right_thumb_left' or gesture == 'left_thumb_left':
             keyboard.press(Key.left)
             keyboard.release(Key.left)
-            print("左一页/快退")
+            print("左一页/快退 (Thumb Left)")
             time.sleep(1.0)
 
+        # --- 功能键 ---
         elif gesture == 'left_back':
             keyboard.press(Key.esc)
             keyboard.release(Key.esc)
             print("返回")
             time.sleep(1.0)
 
-        # 【重要修复】
         elif gesture == 'left_palm' or gesture == 'right_palm':
             keyboard.press(Key.space)
             keyboard.release(Key.space)
             print("暂停/继续")
             time.sleep(1.0)
 
-        # 【重要修复】
         elif gesture == 'right_ok' or gesture == 'left_ok':
-            # 示例：保存操作
             with keyboard.pressed(Key.cmd):
                 keyboard.press('s')
                 keyboard.release('s')
             print("执行保存")
             time.sleep(1.0)
 
-        # 【重要修复】
         elif gesture == 'left_fist' or gesture == 'right_fist':
-            keyboard.press('f')
-            keyboard.release('f')
-            print("全屏切换")
-            time.sleep(1.0)
+            #keyboard.press('f')
+            #keyboard.release('f')
+            print("待机动作")
+            #time.sleep(1.0)
 
         elif gesture == 'left_L':
             with keyboard.pressed(Key.cmd):

@@ -6,7 +6,7 @@ import os
 import time
 
 # ================= 配置 =================
-GESTURE_LABEL = 'zoom_out'  # 修改这里来录制不同的手势
+GESTURE_LABEL = 'zoom_in'  # 修改这里来录制不同的手势
 OUTPUT_CSV_PATH = f'lstm/{GESTURE_LABEL}.csv'
 SEQUENCE_LENGTH = 20  # 序列长度 (帧数)
 LANDMARKS_PER_HAND = 21
@@ -76,7 +76,7 @@ def main():
     is_recording = False
     is_counting_down = False
     countdown_start_time = 0
-    COUNTDOWN_DURATION = 3  # 倒计时秒数
+    COUNTDOWN_DURATION = 1  # 倒计时秒数
     # --- -------------------- ---
 
     print(f"准备录制动态手势: {GESTURE_LABEL}")
