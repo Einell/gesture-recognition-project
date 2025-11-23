@@ -8,7 +8,7 @@ csv_dir = 'gestures_csv'
 # 输出文件名称
 output_file = 'gestures.csv'
 # 共用的表头
-column_names = [f'x{i}' for i in range(21)] + [f'y{i}' for i in range(21)] + [f'z{i}' for i in range(21)] + ['label']
+column_names = [f'x{i}' for i in range(21)] + [f'y{i}' for i in range(21)] + ['label']
 
 def main():
     print("开始合并")

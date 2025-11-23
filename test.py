@@ -25,7 +25,7 @@ class HandSmoother:
         self.prev_landmarks = None
 
     def smooth(self, current_landmarks_proto):
-        current_data = np.array([[lm.x, lm.y, lm.z] for lm in current_landmarks_proto.landmark])
+        current_data = np.array([[lm.x, lm.y] for lm in current_landmarks_proto.landmark])
         if self.prev_landmarks is None:
             self.prev_landmarks = current_data
             return current_landmarks_proto
@@ -37,7 +37,6 @@ class HandSmoother:
         for i, lm in enumerate(current_landmarks_proto.landmark):
             lm.x = smoothed_data[i, 0]
             lm.y = smoothed_data[i, 1]
-            lm.z = smoothed_data[i, 2]
         return current_landmarks_proto
 
 
@@ -111,7 +110,7 @@ async_executor = AsyncExecutor()
 def extract_and_normalize_features(hand_landmarks):
     landmarks = []
     for landmark in hand_landmarks.landmark:
-        landmarks.append([landmark.x, landmark.y, landmark.z])
+        landmarks.append([landmark.x, landmark.y])
     landmarks = np.array(landmarks)
     # 归一化
     wrist_coord = landmarks[0]
