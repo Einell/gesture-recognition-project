@@ -28,7 +28,7 @@ if not os.path.exists(feature_csv_path):
 df = pd.read_csv(feature_csv_path)
 
 # 分离特征和标签
-X = df.iloc[:, :-1].values # 特征（前63列）
+X = df.iloc[:, :-1].values # 特征（前42列）
 y = df.iloc[:, -1].values # 标签 （最后一列）
 
 print(f"数据加载完成。特征维度: {X.shape}, 标签数量: {y.shape[0]}")
