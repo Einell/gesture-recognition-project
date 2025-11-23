@@ -21,7 +21,7 @@ class GestureMouseController:
             self.W_SCREEN, self.H_SCREEN = 1920, 1080
 
         # ================= 虚拟鼠标核心参数 =================
-        self.frameR = 200  # Frame Reduction: 帧缩减像素 (值越大，移动鼠标所需的动作幅度越小)
+        self.frameR = 100  # Frame Reduction: 帧缩减像素 (值越大，移动鼠标所需的动作幅度越小)
         self.smoothening = 5  # 平滑系数 (值越大越平滑，但延迟越高)
         # ==================================================
 
@@ -75,7 +75,6 @@ class GestureMouseController:
         # 使用 int() 确保坐标是整数
         final_x = self.W_SCREEN - self.clocX
         pyautogui.moveTo(self.clocX, self.clocY)
-
         # 6. 更新上一帧位置
         self.plocX, self.plocY = self.clocX, self.clocY
 

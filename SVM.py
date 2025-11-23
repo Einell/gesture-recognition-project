@@ -1,59 +1,108 @@
+# 基于支持向量机的手势分类
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 import joblib
+import os
 
-# ================= 配置路径 =================
-DATA_PATH = 'gestures.csv'
-MODEL_PATH = 'gesture_svm_model.pkl'
-SCALER_PATH = 'svm_scaler.pkl'  # 保存标准化器 (StandardScaler)
+# 特征文件路径
+feature_csv_path = 'gestures.csv'
+# 模型保存路径
+model_save_path = 'gesture_svm_model.pkl'
+# 训练集比例
+test_size = 0.3
+# 随机种子
+random_state = 42
 
-# ================= 1. 加载数据 =================
-try:
-    data = pd.read_csv(DATA_PATH)
-    print(f"成功加载数据: {data.shape}")
-except FileNotFoundError:
-    print(f"错误: 找不到文件 {DATA_PATH}")
-    exit()
+# 数据加载
+# 检查CSV文件是否存在
+if not os.path.exists(feature_csv_path):
+    print(f"错误: 特征文件 '{feature_csv_path}' 不存在！")
+    exit(1)
 
-# 2. 准备特征和标签
-# 假设最后一列是标签
-X = data.iloc[:, :-1].values
-y = data.iloc[:, -1].values
+# 读取CSV文件
+df = pd.read_csv(feature_csv_path)
 
-# 3. 划分训练集和测试集
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+# 分离特征和标签
+X = df.iloc[:, :-1].values # 特征（前63列）
+y = df.iloc[:, -1].values # 标签 （最后一列）
 
-# ================= 4. 特征标准化 (StandardScaler) =================
-# 关键：在这里定义并训练 scaler
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-print("特征数据已完成 Standard Scaling (Z-score 标准化)。")
+print(f"数据加载完成。特征维度: {X.shape}, 标签数量: {y.shape[0]}")
+print(f"手势类别: {np.unique(y)}") # 显示所有手势类别
 
-# ================= 5. 训练 SVM 模型 =================
-print("开始训练 SVM 模型...")
-# 使用 C=0.1, kernel='linear' 匹配您之前的配置
-svm_model = SVC(probability=True, kernel='linear', C=0.1, random_state=42)
-svm_model.fit(X_train, y_train)
-print("SVM 模型训练完成。")
+# 划分训练集和测试集
+print("\n正在划分训练集和测试集...")
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=test_size,
+    random_state=random_state,
+    stratify=y # 确保训练集和测试集中各类别的比例与原始数据一致
+)
 
-# ================= 6. 评估模型 =================
-y_pred = svm_model.predict(X_test)
+print(f"训练集: {X_train.shape}, 测试集: {X_test.shape}")
+
+# 初始化并训练SVM模型
+print("\n正在初始化并训练SVM模型...")
+# 参数说明:
+# C: 惩罚系数，控制模型复杂度；kernel: 核函数；gamma: 'rbf'核的带宽参数；class_weight: 'balanced' 会给样本量较少的类别赋予更大的权重，有助于处理不平衡数据集
+svm_classifier = SVC(C=1.0, kernel='rbf', gamma='scale', class_weight='balanced', random_state=random_state,probability=True)
+
+# 训练模型
+svm_classifier.fit(X_train, y_train)
+
+print("模型训练完成。")
+
+# 模型评估
+
+print("\n" + "="*50)
+print("模型评估结果")
+
+# 预测
+y_pred = svm_classifier.predict(X_test)
+
+# 计算准确率
 accuracy = accuracy_score(y_test, y_pred)
-print(f"模型准确率 (测试集): {accuracy:.4f}")
+print(f"\n准确率 (Accuracy): {accuracy:.4f}")
 
-# ================= 7. 保存模型和标准化器 =================
-try:
-    # 保存 SVM 模型
-    joblib.dump(svm_model, MODEL_PATH)
-    print(f"SVM 模型已保存至: {MODEL_PATH}")
+# 生成并打印分类报告
+print("\n分类报告 (Classification Report):")
+print(classification_report(y_test, y_pred, target_names=np.unique(y)))
 
-    # 保存标准化器 (scaler) - 修复 NameError
-    joblib.dump(scaler, SCALER_PATH)
-    print(f"StandardScaler 已保存至: {SCALER_PATH}")
+# 生成混淆矩阵
+cm = confusion_matrix(y_test, y_pred)
 
-except Exception as e:
-    print(f"保存文件时发生错误: {e}")
+# 打印混淆矩阵
+print("\n混淆矩阵 (Confusion Matrix):")
+print(cm)
+
+
+print("\n正在生成混淆矩阵热力图...")
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
+# 创建热力图
+plt.figure(figsize=(12, 10))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=np.unique(y),
+    yticklabels=np.unique(y)
+)
+plt.title('SVM confusion matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.xticks(rotation=45)
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+# 保存模型
+
+if model_save_path:
+    joblib.dump(svm_classifier, model_save_path)
+    print("模型保存成功。")
