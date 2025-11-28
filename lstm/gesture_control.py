@@ -99,14 +99,14 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
                 keyboard.press('+')  # 如果无效，尝试改成 '='
                 keyboard.release('+')
             print("LSTM: 放大 (Zoom In)")
-            time.sleep(0.5)
+            time.sleep(2.0)
 
         elif gesture == 'zoom_out':
             with keyboard.pressed(Key.cmd):
                 keyboard.press('-')
                 keyboard.release('-')
             print("LSTM: 缩小 (Zoom Out)")
-            time.sleep(0.5)
+            time.sleep(2.0)
 
         # ================= 3. 原有：SVM 静态手势控制 (完全保留) =================
 

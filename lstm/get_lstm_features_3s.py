@@ -6,12 +6,12 @@ import os
 import time
 
 # ================= 配置 =================
-GESTURE_LABEL = 'zoom_in'  # 修改这里来录制不同的手势
-OUTPUT_CSV_PATH = f'lstm/{GESTURE_LABEL}.csv'
+GESTURE_LABEL = 'static'  # 修改这里来录制不同的手势
+OUTPUT_CSV_PATH = f'lstm-3/{GESTURE_LABEL}.csv'
 SEQUENCE_LENGTH = 20  # 序列长度 (帧数)
 LANDMARKS_PER_HAND = 21
-COORDS_PER_LANDMARK = 2
-# 特征总长度 = 25帧 * (2只手 * 21点 * 3坐标) = 3780 (写入CSV的一行)
+COORDS_PER_LANDMARK = 3
+# 特征总长度 = 20帧 * (2只手 * 21点 * 3坐标) = 3780 (写入CSV的一行)
 # 但我们在提取时，单帧特征长度 = 126
 
 mpHands = mp.solutions.hands
@@ -26,46 +26,51 @@ mpDraw = mp.solutions.drawing_utils
 
 def extract_dual_hand_features(results):
     """
-    提取双手的特征，始终保持 左手在前(0-62), 右手在后(63-125) 的顺序。
-    如果某只手不存在，填充0。
+    优化版: 使用 '手腕到中指根部' 的距离进行归一化，保证尺度一致性。
     """
     # 初始化全0向量 (126,)
-    feature_vector = np.zeros(2 * LANDMARKS_PER_HAND * COORDS_PER_LANDMARK)
+    feature_vector = np.zeros(126)  # 2 * 21 * 3
 
     if not results.multi_hand_landmarks:
-        return feature_vector
+        return feature_vector, False  # 返回 False 表示没检测到手
+
+    hands_found = 0
 
     for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
-        # 获取左右手标签
-        # 注意: MediaPipe的 multi_handedness 可能会与左右手实际位置混淆，
-        # 在实际应用中，通常会根据手的 x 坐标来更可靠地判断左右。
-        # 这里为了与原代码逻辑一致，仍使用 label。
+        hands_found += 1
         handedness = results.multi_handedness[idx].classification[0].label
 
-        # 提取坐标并归一化 (相对于手腕)
+        # 提取坐标
         lm_array = []
         for lm in hand_landmarks.landmark:
-            lm_array.append([lm.x, lm.y])
+            lm_array.append([lm.x, lm.y, lm.z])
         lm_array = np.array(lm_array)
 
-        # 以手腕为中心
+        # A. 中心化: 以手腕(0)为原点
         wrist = lm_array[0]
         lm_array = lm_array - wrist
 
-        # 归一化
-        max_dist = np.max(np.linalg.norm(lm_array, axis=1))
-        if max_dist > 0:
-            lm_array /= max_dist
+        # B. 尺度归一化: 使用 手腕(0) 到 中指指根(9) 的欧氏距离
+        # 这个距离是物理固定的，不会随手指弯曲而改变
+        palm_size = np.linalg.norm(lm_array[0] - lm_array[9])
 
-        flat_features = lm_array.flatten()  # (63,)
+        # 防止除以0
+        if palm_size < 1e-6:
+            palm_size = 1
 
-        # 根据左右手填入对应位置
+        lm_array /= palm_size  # 缩放
+
+        flat_features = lm_array.flatten()
+
+        # C. 左右手对齐 (注意：镜像模式下，MediaPipe的Left/Right可能与视觉相反)
+        # 建议实际测试一下，如果发现反了，互换下面的判定逻辑
         if handedness == 'Left':
-            feature_vector[0:42] = flat_features
+            feature_vector[0:63] = flat_features
         else:
-            feature_vector[42:84] = flat_features
+            feature_vector[63:126] = flat_features
 
-    return feature_vector
+    # 如果需要强制双手数据，可以在这里判断 hands_found 数量
+    return feature_vector, True
 
 
 def main():
@@ -78,7 +83,7 @@ def main():
     countdown_start_time = 0
     COUNTDOWN_DURATION = 1  # 倒计时秒数
     # --- -------------------- ---
-
+    save_count = 0
     print(f"准备录制动态手势: {GESTURE_LABEL}")
     print("按 'r' 开始录制 (倒计时3秒后开始)")
     print("按 'q' 退出")
@@ -115,31 +120,40 @@ def main():
 
         # 录制逻辑
         elif is_recording:
-            feat = extract_dual_hand_features(results)
+            # 获取特征 和 是否检测到手的标志
+            feat, hand_detected = extract_dual_hand_features(results)
+            if not hand_detected:
+                print("❌ 丢失追踪，录制中止！")
+                sequence_buffer = []
+                is_recording = False
+                continue
+
             sequence_buffer.append(feat)
 
-            cv2.putText(img, f"RECORDING... {len(sequence_buffer)}/{SEQUENCE_LENGTH}",
-                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)  # 红色
+            cv2.putText(img, f"REC: {len(sequence_buffer)}/{SEQUENCE_LENGTH}",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
             if len(sequence_buffer) == SEQUENCE_LENGTH:
                 is_recording = False
-                print("录制完成，正在保存...")
+                save_count += 1
 
                 # 保存数据
-                # 将 (30, 126) 展平为 (3780,) 加上标签
                 flat_sequence = np.array(sequence_buffer).flatten().tolist()
                 flat_sequence.append(GESTURE_LABEL)
 
                 df = pd.DataFrame([flat_sequence])
 
-                if os.path.exists(OUTPUT_CSV_PATH):
-                    df.to_csv(OUTPUT_CSV_PATH, mode='a', header=False, index=False)
-                else:
-                    # 创建列名太长了，这里可以不写header，或者用dummy header
-                    df.to_csv(OUTPUT_CSV_PATH, mode='w', header=False, index=False)
+                # 自动添加表头 (如果是新文件)
+                header = not os.path.exists(OUTPUT_CSV_PATH)
+                df.to_csv(OUTPUT_CSV_PATH, mode='a', header=header, index=False)
 
-                print(f"样本已保存到 {OUTPUT_CSV_PATH}")
-                sequence_buffer = []  # 清空
+                print(f"✅ 样本 {save_count} 已保存! (当前动作: {GESTURE_LABEL})")
+                sequence_buffer = []
+
+                # ⚡️ 体验优化: 自动重启倒计时 (连拍模式)
+                # 如果你想录完一次暂停，把下面这两行注释掉即可
+                is_counting_down = True
+                countdown_start_time = time.time()
 
         else:
             # 待机状态

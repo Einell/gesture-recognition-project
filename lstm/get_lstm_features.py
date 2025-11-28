@@ -6,13 +6,13 @@ import os
 import time
 
 # ================= 配置 =================
-GESTURE_LABEL = 'open'  # 修改这里来录制不同的手势
-OUTPUT_CSV_PATH = f'lstm/{GESTURE_LABEL}.csv'
+GESTURE_LABEL = 'background'  # 修改这里来录制不同的手势
+OUTPUT_CSV_PATH = f'lstm-3/{GESTURE_LABEL}.csv'
 SEQUENCE_LENGTH = 20  # 序列长度 (帧数)
 LANDMARKS_PER_HAND = 21
-COORDS_PER_LANDMARK = 2
+COORDS_PER_LANDMARK = 3
 # 特征总长度 = 30帧 * (2只手 * 21点 * 3坐标) = 3150 (写入CSV的一行)
-# 但我们在提取时，单帧特征长度 = 84
+#但我们在提取时，单帧特征长度 = 126
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(
@@ -42,7 +42,7 @@ def extract_dual_hand_features(results):
         # 提取坐标并归一化 (相对于手腕)
         lm_array = []
         for lm in hand_landmarks.landmark:
-            lm_array.append([lm.x, lm.y])
+            lm_array.append([lm.x, lm.y, lm.z])
         lm_array = np.array(lm_array)
 
         # 以手腕为中心
@@ -58,9 +58,9 @@ def extract_dual_hand_features(results):
 
         # 根据左右手填入对应位置
         if handedness == 'Left':
-            feature_vector[0:42] = flat_features
+            feature_vector[0:63] = flat_features
         else:
-            feature_vector[42:84] = flat_features
+            feature_vector[63:126] = flat_features
 
     return feature_vector
 

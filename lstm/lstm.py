@@ -7,13 +7,14 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.callbacks import EarlyStopping  # 引入 EarlyStopping
+from tensorflow.keras.optimizers.legacy import Adam as LegacyAdam
 import os
 
 # ================= 配置 =================
-CSV_FILE = 'gestures_lstm.csv'
+CSV_FILE = 'gestures_lstm-3.csv'
 MODEL_PATH = 'gesture_lstm_model.keras'  # 推荐使用新格式
 SEQUENCE_LENGTH = 20
-FEATURES_PER_FRAME = 84
+FEATURES_PER_FRAME = 126
 
 
 def main():
@@ -58,19 +59,26 @@ def main():
 
     # 构建模型 (关键优化区域)
     model = Sequential([
-        # 优化点 1: LSTM 激活函数改为 'tanh'
-        LSTM(64, return_sequences=True, activation='tanh', input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
-        # 优化点 1: LSTM 激活函数改为 'tanh'
-        LSTM(128, return_sequences=False, activation='tanh'),
-        Dropout(0.3),  # 优化点 2: 增加 Dropout 率至 0.3
-        # 优化点 3: Dense 层可保持 'relu'，因为它计算效率高且在非序列部分表现良好
-        Dense(64, activation='relu'),
-        Dense(32, activation='relu'),
+        # 增加单元数，以便捕捉更复杂的时序信息
+        # 保持 return_sequences=True，将序列传递给下一层LSTM
+        LSTM(128, return_sequences=True, activation='tanh', input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
+
+        # 核心：增加一个 LSTM 层，帮助学习更高级的时序特征
+        # 此时 return_sequences=False，将输出展平
+        LSTM(256, return_sequences=False, activation='tanh'),
+
+        # 保持 Dropout
+        Dropout(0.3),
+
+        # 增加 Dense 层宽度，提高模型容量
+        Dense(128, activation='relu'),
+        # 降低 Dropout，防止过拟合
+        # Dropout(0.2),
+
         Dense(len(classes), activation='softmax')
     ])
 
-    # 优化点 4: 降低学习率
-    custom_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    custom_optimizer = LegacyAdam(learning_rate=0.001)
 
     model.compile(optimizer=custom_optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
@@ -85,7 +93,7 @@ def main():
     # 增加 epochs 到 100 轮（由 Early Stopping 负责提前停止）
     model.fit(
         X_train, y_train,
-        epochs=100,
+        epochs=50,
         batch_size=16,
         validation_data=(X_test, y_test),
         callbacks=[early_stopping]  # 启用 Early Stopping
