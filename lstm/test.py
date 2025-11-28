@@ -12,7 +12,7 @@ CLASSES_PATH = 'lstm_classes.npy'
 SEQUENCE_LENGTH = 20
 THRESHOLD = 0.85
 ACTION_COOLDOWN = 1.0
-SKIP_FRAMES = 2  # 💡 新增：每隔2帧检测一次，降低负载
+SKIP_FRAMES = 1  # 💡 新增：每隔2帧检测一次，降低负载
 
 # ================= 初始化 MediaPipe =================
 mp_hands = mp.solutions.hands
