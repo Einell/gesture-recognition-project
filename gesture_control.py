@@ -6,7 +6,7 @@ import numpy as np
 import mouse_controller as mc
 import json
 from pynput import keyboard as pynput_keyboard  # 引入pynput的Key
-
+import playmusic
 keyboard = Controller()
 
 # --- 1. 配置加载 ---
@@ -146,6 +146,14 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
             print("执行右键点击")
             time.sleep(0.3)
             return
+
+        elif gesture in ("right_snap", "left_snap"):
+            playmusic.play()  # 使用默认配置
+            # 或自定义：
+            # playmusic.play("/path/to/song.mp3", duration=8.0)
+            time.sleep(1.5)  # 防抖
+            return
+
 
         # --- 3. 自定义键盘映射操作 (新逻辑) ---
         elif gesture in GESTURE_MAPPING:

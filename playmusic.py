@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-macOS 音乐播放器：播放 10 秒后自动关闭（无淡出）
-依赖：ffmpeg + pynput
+macOS 音乐播放模块（供手势识别项目调用）
+✅ 可导入：import playmusic; playmusic.play()
+✅ 可独立运行：python playmusic.py
 """
 
 import subprocess
@@ -10,39 +11,30 @@ import time
 import os
 import sys
 import threading
-from pynput import keyboard as pynput_keyboard
+from pathlib import Path
 
-# ── 配置 ───────────────────────────────────────
-MUSIC_FILE = "/Users/ein/Music/Music/music.mp3"  # 👈 请确认路径存在
-AUTO_STOP_AFTER = 10.0  # 播放 10 秒后自动停止（秒）
-
-# ── 全局变量 ───────────────────────────────────
-stop_requested = threading.Event()
-player_process = None
-key_listener = None
+# ── 默认配置（可被参数覆盖）───────────────────────
+DEFAULT_MUSIC_FILE = "/Users/ein/Music/Music/music.mp3"
+DEFAULT_DURATION = 10.0  # 秒
 
 
-# ── 工具函数 ───────────────────────────────────
+# ── 核心工具函数 ────────────────────────────────
 def get_duration(file_path):
-    """用 ffprobe 获取音频总时长（秒）"""
+    """用 ffprobe 获取音频时长（秒），失败返回 None"""
     try:
         result = subprocess.run([
             "ffprobe", "-v", "error",
             "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1",
-            file_path
+            str(file_path)
         ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=3)
         return float(result.stdout.strip())
     except Exception:
         return None
 
 
-def format_time(seconds):
-    m, s = divmod(int(seconds), 60)
-    return f"{m:02d}:{s:02d}"
-
-
 def safe_terminate(proc):
+    """安全终止子进程"""
     if proc and proc.poll() is None:
         try:
             proc.terminate()
@@ -54,99 +46,84 @@ def safe_terminate(proc):
             pass
 
 
-def stop_all():
-    global player_process
-    stop_requested.set()
-    safe_terminate(player_process)
-    player_process = None
-    # 保险：杀死残留 afplay
+def stop_all_afplay():
+    """强制停止所有 afplay 进程"""
     subprocess.run(["pkill", "-KILL", "afplay"],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-# ── 按键监听 ───────────────────────────────────
-def on_press(key):
-    try:
-        if key == pynput_keyboard.KeyCode.from_char('q') or key == pynput_keyboard.Key.space:
-            print("\n⏹ 手动停止（q/空格）")
-            stop_all()
-            return False
-    except AttributeError:
-        pass
+# ── 主播放函数（对外 API）────────────────────────
+def play(music_file=None, duration=None, verbose=True):
+    """
+    播放音乐（10 秒后自动停止）
+
+    参数:
+        music_file (str | Path): 音乐文件路径，默认为 DEFAULT_MUSIC_FILE
+        duration (float): 播放时长（秒），默认 10.0
+        verbose (bool): 是否打印日志
+
+    返回:
+        bool: True 表示启动成功
+    """
+    music_file = Path(music_file or DEFAULT_MUSIC_FILE)
+    duration = duration or DEFAULT_DURATION
+
+    if not music_file.exists():
+        if verbose:
+            print(f"❌ 音乐文件不存在: {music_file}")
+        return False
+
+    # 后台播放逻辑（不阻塞调用线程）
+    def _play_task():
+        try:
+            if verbose:
+                total_dur = get_duration(music_file)
+                display_total = f"{int(total_dur) // 60:02d}:{int(total_dur) % 60:02d}" if total_dur else "??"
+                print(f"🎵 开始播放: {music_file.name} | 自动停止: {duration} 秒")
+
+            proc = subprocess.Popen(
+                ["afplay", "-v", "1.0", str(music_file)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+
+            start_time = time.time()
+            while proc.poll() is None:
+                if time.time() - start_time >= duration:
+                    break
+                time.sleep(0.1)
+
+            safe_terminate(proc)
+            stop_all_afplay()
+
+            if verbose:
+                print("⏹ 音乐播放已停止")
+
+        except Exception as e:
+            if verbose:
+                print(f"⚠️ 播放异常: {e}")
+
+    # 启动后台线程
+    thread = threading.Thread(target=_play_task, daemon=True, name="MusicPlayer")
+    thread.start()
     return True
 
 
-def start_listener():
-    global key_listener
-    key_listener = pynput_keyboard.Listener(on_press=on_press)
-    key_listener.start()
-
-
-# ── 主播放逻辑 ─────────────────────────────────
-def play_music():
-    global player_process
-
-    if not os.path.isfile(MUSIC_FILE):
-        print(f"❌ 文件不存在：{MUSIC_FILE}")
-        return
-
-    # 获取总时长（用于显示，非必需）
-    total_duration = get_duration(MUSIC_FILE)
-    display_duration = format_time(total_duration) if total_duration else "??"
-
-    print(f"🎵 正在播放：{os.path.basename(MUSIC_FILE)}")
-    print(f"⏱ 总时长：{display_duration}｜自动停止：{AUTO_STOP_AFTER} 秒")
-    print("ℹ️ 按 [q] 或 [空格] 可提前停止\n")
-
-    # 启动 afplay（全音量）
-    player_process = subprocess.Popen(
-        ["afplay", "-v", "1.0", MUSIC_FILE],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-
-    # 启动监听
-    stop_requested.clear()
-    start_listener()
-
-    start_time = time.time()
-    try:
-        while player_process.poll() is None and not stop_requested.is_set():
-            elapsed = time.time() - start_time
-
-            # 更新进度条
-            if total_duration:
-                progress = min(elapsed / total_duration, 1.0)
-                bar = "█" * int(30 * progress) + "░" * (30 - int(30 * progress))
-                sys.stdout.write(
-                    f"\r[{bar}] {format_time(elapsed)} / {display_duration} "
-                    f"({progress*100:.1f}%)"
-                )
-            else:
-                sys.stdout.write(f"\r▶ 已播放：{elapsed:.1f} 秒")
-            sys.stdout.flush()
-
-            # 检查是否到 10 秒
-            if elapsed >= AUTO_STOP_AFTER and not stop_requested.is_set():
-                print(f"\n⏰ {AUTO_STOP_AFTER} 秒到！自动停止播放...")
-                stop_all()
-                break
-
-            time.sleep(0.1)
-
-        if not stop_requested.is_set():
-            sys.stdout.write("\n✅ 自然播放结束\n")
-
-    except KeyboardInterrupt:
-        print("\n🛑 Ctrl+C 中断")
-        stop_all()
-    finally:
-        if key_listener and key_listener.is_alive():
-            key_listener.stop()
-        stop_all()
-        sys.stdout.write("\n")
-
-
-# ── 入口 ───────────────────────────────────────
+# ── 独立运行入口（保持兼容）───────────────────────
 if __name__ == "__main__":
-    play_music()
+    # 支持命令行参数: python playmusic.py [file] [duration]
+    import argparse
+
+    parser = argparse.ArgumentParser(description="macOS 音乐播放器")
+    parser.add_argument("file", nargs="?", default=DEFAULT_MUSIC_FILE, help="音乐文件路径")
+    parser.add_argument("duration", nargs="?", type=float, default=DEFAULT_DURATION, help="播放时长（秒）")
+    args = parser.parse_args()
+
+    print("🚀 手动测试模式")
+    success = play(
+        music_file=args.file,
+        duration=args.duration,
+        verbose=True
+    )
+    if not success:
+        sys.exit(1)
