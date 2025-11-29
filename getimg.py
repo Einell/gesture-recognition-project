@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 # 手势标签
-GESTURE_LABEL = 'right_mouse_roll'
+GESTURE_LABEL = 'left_snap'
 
 # 输出的CSV文件路径
 OUTPUT_CSV_PATH = f'q/{GESTURE_LABEL}.csv'

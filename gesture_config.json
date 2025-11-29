@@ -9,7 +9,7 @@
     "right_ok": ["cmd", "s"],
     "left_ok": ["cmd", "s"],
 
-    "right_thumb_up                        ": "up",
+    "right_thumb_up": "up",
     "left_thumb_up": "up",
 
     "right_thumb_down": "down",
