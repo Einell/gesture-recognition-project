@@ -9,7 +9,7 @@ import joblib
 import gesture_control as control # 手势控制
 import threading
 import mouse_controller as mc # 鼠标控制
-
+# 参数
 PROBABILITY_THRESHOLD = 0.8  # 置信概率阈值
 MODEL_PATH = 'gesture_svm_model.pkl' # 模型文件路径
 CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'} # 实时手势
@@ -104,7 +104,7 @@ def extract_and_normalize_features(hand_landmarks):
     # 以手腕为中心进行坐标平移
     wrist_coord = landmarks[0]
     translated = landmarks - wrist_coord
-    #根据最大距离进行归一化缩放
+    # 根据最大距离进行归一化缩放
     distances = np.linalg.norm(translated, axis=1)
     max_distance = np.max(distances)
     if max_distance > 0:

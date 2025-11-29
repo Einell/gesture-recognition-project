@@ -1,103 +1,116 @@
+# 根据手势进行相应操作
+
 import math
 import os
 import time
 from pynput.keyboard import Key, Controller
 import numpy as np
-import mouse_controller as mc
-import playmusic  # 确保在文件开头导入
+import mouse_controller as mc # 鼠标控制
+import playmusic #音乐控制
 
 keyboard = Controller()
-
-
+# 音量控制
 class VolumeController:
     def __init__(self):
-        self.min_dist = 0.02
-        self.max_dist = 0.20
-        self.last_volume = -1
+        self.min_dist = 0.02 # 最小距离
+        self.max_dist = 0.20 # 最大距离
+        self.last_volume = -1 # 上一次音量
 
     def set_volume(self, hand_landmarks):
         if not hand_landmarks: return
+        # 获取拇指和食指指尖的坐标
         thumb = hand_landmarks.landmark[4]
         index = hand_landmarks.landmark[8]
+        # 计算距离
         length = math.hypot(index.x - thumb.x, index.y - thumb.y)
+        # 映射到音量范围
         vol = np.interp(length, [self.min_dist, self.max_dist], [0, 100])
         vol = int(vol)
         if abs(vol - self.last_volume) > 2:
             os.system(f"osascript -e 'set volume output volume {vol}'")
-            # print(f"音量调节: {vol}%") # 减少打印频率
             self.last_volume = vol
-
 
 VOLUME_CONTROLLER = VolumeController()
 
-
+# 执行手势操作
 def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
     try:
-        # 获取图像尺寸 (height, width, channels)
+        # 获取图像尺寸
         img_shape = display_img.shape if display_img is not None else (480, 640, 3)
 
-        # --- 1. 实时/连续操作 ---
+        # 连续手势操作
+        # 鼠标移动
         if gesture == 'right_mouse':
             if hand_landmarks:
-                # 【关键修改】传入 img_shape 以支持 Frame Reduction 计算
                 mc.move_mouse(hand_landmarks, img_shape)
             return
-
+        # 鼠标滚轮
         elif gesture == 'right_mouse_roll':
             if hand_landmarks:
                 mc.scroll_mouse(hand_landmarks)
             return
-
+        # 音量控制
         elif gesture == 'volume_control':
             if hand_landmarks:
                 VOLUME_CONTROLLER.set_volume(hand_landmarks)
             return
 
-        # --- 2. 鼠标点击 ---
+        # 离散手势操作
+        # 鼠标左键
         elif gesture == 'right_mouse_left_click':
             mc.left_click()
             print("执行左键点击")
-            time.sleep(0.2)  # 稍微降低延迟，提升连点体验
+            time.sleep(0.3)
             return
-
+        # 鼠标右键
         elif gesture == 'right_mouse_right_click':
             mc.right_click()
             print("执行右键点击")
             time.sleep(0.3)
             return
 
-        # --- 3. 键盘映射 (保持不变) ---
+        # 快捷键控制
+        # 向上
         elif gesture == 'right_thumb_up' or gesture == 'left_thumb_up':
             keyboard.press(Key.up)
             keyboard.release(Key.up)
-            print("上一页")
+            print("上一页/向下滚动")
             time.sleep(0.8)
+            return
 
+        # 向下
         elif gesture == 'right_thumb_down' or gesture == 'left_thumb_down':
             keyboard.press(Key.down)
             keyboard.release(Key.down)
             print("下一页/向下滚动")
             time.sleep(1.0)
+            return
 
+        # 向右
         elif gesture == 'right_thumb_right' or gesture == 'left_thumb_right':
             keyboard.press(Key.right)
             keyboard.release(Key.right)
             print("右一页/快进")
             time.sleep(1.0)
+            return
 
+        # 向左
         elif gesture == 'right_thumb_left' or gesture == 'left_thumb_left':
             keyboard.press(Key.left)
             keyboard.release(Key.left)
             print("左一页/快退")
             time.sleep(1.0)
+            return
 
+        # 返回
         elif gesture == 'left_back':
             keyboard.press(Key.esc)
             keyboard.release(Key.esc)
             print("返回")
             time.sleep(1.0)
+            return
 
-        # 【重要修复】
+        # 播放/暂停
         elif gesture == 'left_palm':
             # 停止音乐播放
             playmusic.stop_playback()
@@ -106,56 +119,62 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
             keyboard.release(Key.space)
             print("暂停/继续 + 停止音乐")
             time.sleep(1.0)
+            return
 
-        # 【重要修复】
+        # 保存
         elif gesture == 'right_ok' or gesture == 'left_ok':
-            # 示例：保存操作
             with keyboard.pressed(Key.cmd):
                 keyboard.press('s')
                 keyboard.release('s')
-            print("执行保存")
+            print("保存")
             time.sleep(1.0)
+            return
 
-        # 【重要修复】
+        # 静默手势，待机动作
         elif gesture == 'left_fist' or gesture == 'right_fist':
-            # keyboard.press('f')
-            # keyboard.release('f')
-            print("全屏切换")
-            time.sleep(1.0)
+            return
 
+        # 截屏
         elif gesture == 'left_L':
             with keyboard.pressed(Key.cmd):
                 with keyboard.pressed(Key.shift):
                     keyboard.press('3')
                     keyboard.release('3')
-            print("执行截屏")
+            print("截屏")
             time.sleep(1.0)
-
+            return
+        # 打个响指，播放音乐
         elif gesture in ("right_snap", "left_snap"):
-            playmusic.play()  # 使用默认配置
-            # 或自定义：
-            # playmusic.play("/path/to/song.mp3", duration=8.0)
-            time.sleep(1.5)  # 防抖
+            playmusic.play()
+            # playmusic.play("/path/to/song.mp3", duration=8.0) # 自定义音乐路径与时长
+            print("播放音乐")
+            time.sleep(1.5)
             return
 
+        # 放大
         elif gesture == "zoom_in":
             with keyboard.pressed(Key.cmd):
                 keyboard.press('+')
                 keyboard.release('+')
-            time.sleep(1.5)  # 防抖
+            print("放大")
+            time.sleep(1.5)
             return
 
+        # 缩小
         elif gesture == "zoom_out":
             with keyboard.pressed(Key.cmd):
                 keyboard.press('-')
                 keyboard.release('-')
-            time.sleep(1.5)  # 防抖
+            print("缩小")
+            time.sleep(1.5)
             return
 
+        # 全屏/退出全屏
         elif gesture == "open" or gesture == 'close':
             keyboard.press('f')
             keyboard.release('f')
-            time.sleep(1.5)  # 防抖
+            print("全屏/退出全屏")
+            time.sleep(1.5)
             return
 
     except Exception as e:

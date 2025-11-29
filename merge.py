@@ -1,12 +1,12 @@
 # 这是用于合并指定目录下所有csv文件的程序
-# 把文件放在q目录下，运行本程序即可
+# 把文件放在指定目录下，运行本程序即可
 # 把所有手势文件合并成一个csv文件进行训练
 import pandas as pd
 import os
 import glob
 
 # 指定目录
-csv_dir = "q"
+csv_dir = "data"
 # 输出文件名称
 output_file = 'gestures.csv'
 # 共用的表头
