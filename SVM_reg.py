@@ -1,4 +1,6 @@
-# 这是一个基于SVM的静态手势识别程序,
+# 这是一个基于SVM的静态手势识别程序。
+# 利用mediapipe识别手部骨架数据传给SVM模型进行手势识别，并执行相应的手势控制。
+# 注意开启摄像头权限。
 import cv2
 import mediapipe as mp
 import time
