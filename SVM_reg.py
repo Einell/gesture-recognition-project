@@ -1,4 +1,4 @@
-# 这是一个基于SVM的静态手势识别程序
+# 这是一个基于SVM的静态手势识别程序,
 import cv2
 import mediapipe as mp
 import time
@@ -19,7 +19,7 @@ class HandSmoother:
     # 平滑滤波类，减少关键点抖动
 
     def __init__(self, alpha=0.6):
-        self.alpha = alpha # 平滑因子，控制当前帧与前一帧数据的权重比例
+        self.alpha = alpha # 平滑系数
         self.prev_landmarks = None # 上一帧数据
 
     def smooth(self, current_landmarks_proto):
@@ -58,7 +58,7 @@ class AsyncExecutor:
             self.is_running = True
 
         try:
-            # 执行具体的控制逻辑（包含sleep）
+            # 执行具体的控制逻辑
             task_func(*args)
         except Exception as e:
             print(f"后台任务执行出错: {e}")
@@ -85,120 +85,99 @@ hands = mpHands.Hands(
     min_tracking_confidence=0.7 # 跟踪模型置信度
 )
 mpDRaw = mp.solutions.drawing_utils
-handLmsStyle = mpDRaw.DrawingSpec(color=(244, 208, 0), thickness=2, circle_radius=3) # 手指关键点样式
-handConnStyle = mpDRaw.DrawingSpec(color=(254, 254, 254), thickness=2) # 手指连线样式
+handLmsStyle = mpDRaw.DrawingSpec(color=(0, 0, 255), thickness=3, circle_radius=3) # 手指关键点样式
+handConnStyle = mpDRaw.DrawingSpec(color=(0, 255, 0), thickness=3) # 手指连线样式
 
 hand_smoother = HandSmoother(alpha=0.6) # 创建平滑滤波器
 async_executor = AsyncExecutor() # 创建多线程执行器
 
 
-# 4. 特征提取函数
+# 特征提取
 def extract_and_normalize_features(hand_landmarks):
+    # 提取21个特征点并转换成数组
     landmarks = []
     for landmark in hand_landmarks.landmark:
         landmarks.append([landmark.x, landmark.y, landmark.z])
     landmarks = np.array(landmarks)
-    # 归一化
+    # 以手腕为中心进行坐标平移
     wrist_coord = landmarks[0]
     translated = landmarks - wrist_coord
+    #根据最大距离进行归一化缩放
     distances = np.linalg.norm(translated, axis=1)
     max_distance = np.max(distances)
     if max_distance > 0:
         normalized = translated / max_distance
     else:
         normalized = translated
-    return normalized.flatten().reshape(1, -1)
+    return normalized.flatten().reshape(1, -1) # 将特征展平为1维向量
 
-
-# 5. 状态变量
-
-
-# 6. 打开摄像头
+# 摄像头
 cap = cv2.VideoCapture(0)
-# 设置摄像头分辨率，确保和逻辑一致
+# 摄像头分辨率
 wCam, hCam = 1280, 800
 cap.set(3, wCam)
 cap.set(4, hCam)
-frameR = mc.MOUSE_CONTROLLER.frameR
-pTime = 0
+frameR = mc.MOUSE_CONTROLLER.frameR # 鼠标控制区间，frameR为边距
+pTime = 0 # 用于求fps
 
-print("系统启动完成。按 'q' 退出。")
+print("系统启动完成，按'q'退出")
 
-# ================= 主循环 =================
+# 主循环
 while True:
-    ret, img = cap.read()
+    ret, img = cap.read() # 读取摄像头数据
     if not ret:
         print("无法读取摄像头数据")
         continue
 
-    # 镜像翻转 + 颜色转换
-    img = cv2.flip(img, 1)
-    imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.flip(img, 1) # 镜像翻转，更符合观感
+    imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # 颜色转换
     cv2.rectangle(img, (frameR, frameR), (wCam - frameR, hCam - frameR),
-                  (255, 0, 255), 2)
-    # 手部检测
-    results = hands.process(imgRGB)
+                  (255, 0, 255), 2)# 鼠标控制映射区间
+    results = hands.process(imgRGB) # 手部检测
 
-    detected_gesture = None
-    gesture_probability = 0.0
-
+    detected_gesture = None # 当前手势
+    gesture_probability = 0.0 # 当前手势的概率
+    # 手部检测结果
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
-            # 1. 平滑处理
-            hand_landmarks = hand_smoother.smooth(hand_landmarks)
+            hand_landmarks = hand_smoother.smooth(hand_landmarks) # 平滑处理
 
-            # 2. 特征提取与预测
-            features = extract_and_normalize_features(hand_landmarks)
-            probabilities = svm_model.predict_proba(features)[0]
+            features = extract_and_normalize_features(hand_landmarks) # 特征提取
+            probabilities = svm_model.predict_proba(features)[0] # SVM预测
 
-            max_proba_index = np.argmax(probabilities)
-            gesture_probability = np.max(probabilities)
-            predicted_label = svm_model.classes_[max_proba_index]
-
-            # 3. 阈值过滤
+            max_proba_index = np.argmax(probabilities) # 获取概率最大手势
+            gesture_probability = np.max(probabilities) # 获取概率最大手势的概率
+            predicted_label = svm_model.classes_[max_proba_index] # 获取概率最大手势的标签
+            # 阈值过滤，如果大于阈值则更新当前手势
             if gesture_probability >= PROBABILITY_THRESHOLD:
                 detected_gesture = predicted_label
 
-                # 显示当前识别结果
-                # 颜色区分：如果是鼠标模式，显示绿色，否则紫色
+                # 显示当前识别结果，颜色区分实时还是离散手势
                 text_color = (0, 255, 0) if detected_gesture in CONTINUOUS_GESTURES else (255, 0, 255)
-
                 cv2.putText(img, f'{detected_gesture} ({gesture_probability * 100:.1f}%)',
                             (10, 110), cv2.FONT_HERSHEY_PLAIN, 2, text_color, 3)
             else:
                 cv2.putText(img, f'Unsure ({gesture_probability * 100:.1f}%)',
                             (10, 110), cv2.FONT_HERSHEY_PLAIN, 2, (100, 100, 100), 3)
-            # 4. 执行逻辑分流
+            # 连续/离散手势分流
             if detected_gesture:
-                # 逻辑 A: 实时连续手势 (鼠标移动/音量)
-                # 这些操作不需要连续帧计数，也不需要多线程，因为它们必须每一帧都响应
+                # 连续手势，每一帧响应
                 if detected_gesture in CONTINUOUS_GESTURES:
-                    # 直接在主线程执行，确保流畅
                     control.execute_gesture_action(detected_gesture, cap, img, hand_landmarks)
-                    # 重置计数器，避免干扰离散手势
-                    consecutive_count = 0
+                    consecutive_count = 0 # 重置计数器
                     current_gesture = detected_gesture
 
-                # 逻辑 B: 离散/阻塞手势 (键盘/点击)
-                # 这些操作需要防误触 (连续帧检测) 和 多线程 (防止卡顿)
+                # 离散手势，
                 else:
                     if detected_gesture == current_gesture:
                         consecutive_count += 1
                         if consecutive_count >= CONSECUTIVE_THRESHOLD:
-                            # 达到稳定性阈值，提交给后台线程
-                            # 注意：execute_gesture_action 内部包含 time.sleep
-
-                            # 使用 AsyncExecutor 运行
-                            # 参数说明：task_func, args=(gesture, cap, img, landmarks)
-                            # 注意：这里传递 landmarks 可能存在线程安全微小风险，但对于只读操作通常没事
+                            # 达到连续帧阈值，提交线程
                             async_executor.run(
                                 control.execute_gesture_action,
                                 args=(detected_gesture, None, None, hand_landmarks)
                             )
-
-                            # 触发后，重置计数，防止立刻再次触发
-                            # 也可以不重置，依靠 async_executor 的 is_running 锁来防抖
-                            consecutive_count = 0
+                            consecutive_count = 0 # 重置计数器
                     else:
                         current_gesture = detected_gesture
                         consecutive_count = 1
@@ -206,7 +185,7 @@ while True:
                 current_gesture = None
                 consecutive_count = 0
 
-            # 绘制骨架
+            # 绘制手部骨架
             mpDRaw.draw_landmarks(img, hand_landmarks, mpHands.HAND_CONNECTIONS, handLmsStyle, handConnStyle)
 
     else:
@@ -222,11 +201,12 @@ while True:
     cv2.putText(img, f'FPS: {int(fps)}', (10, 70), cv2.FONT_HERSHEY_PLAIN, 3, (0, 255, 0), 3)
 
     # 显示画面
-    cv2.imshow("Gesture Recognition (Threaded)", img)
+    cv2.imshow("静态SVM识别", img)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# 释放资源
 cap.release()
 cv2.destroyAllWindows()
 hands.close()
