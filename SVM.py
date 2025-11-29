@@ -24,8 +24,8 @@ if not os.path.exists(feature_csv_path):
     print(f"错误: 特征文件 '{feature_csv_path}' 不存在！")
     exit(1)
 
-# 读取CSV文件
-df = pd.read_csv(feature_csv_path)
+# 读取CSV文件，不读取表头
+df = pd.read_csv(feature_csv_path, header=None)
 
 # 分离特征和标签
 X = df.iloc[:, :-1].values  # 特征（前63列）

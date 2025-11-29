@@ -1,14 +1,17 @@
-#合并目录下所有csv文件
+# 这是用于合并指定目录下所有csv文件的程序
+# 把文件放在q目录下，运行本程序即可
+# 把所有手势文件合并成一个csv文件进行训练
 import pandas as pd
 import os
 import glob
 
-# 目录
+# 指定目录
 csv_dir = "q"
 # 输出文件名称
 output_file = 'gestures.csv'
 # 共用的表头
 column_names = [f'x{i}' for i in range(21)] + [f'y{i}' for i in range(21)] + [f'z{i}' for i in range(21)] + ['label']
+
 
 def main():
     print("开始合并")
@@ -23,18 +26,23 @@ def main():
     for file in csv_files:
         print(f" - {os.path.basename(file)}")
 
-    #读取并合并所有CSV
+    # 读取并合并所有CSV
     all_data = []
     for file_path in csv_files:
         try:
-            # 读取单个 CSV，指定表头
-            df = pd.read_csv(file_path, header=None if os.path.basename(file_path) == output_file else 0)
-            # 新文件，手动添加表头
-            if df.shape[1] == len(column_names) and not all(col in df.columns for col in column_names):
-                df.columns = column_names
-            df = df[column_names]
+            # 读取单个CSV，跳过表头
+            df = pd.read_csv(file_path, header=None)
+            # 检查数据列数是否匹配
+            if df.shape[1] != len(column_names):
+                print(
+                    f"警告：{os.path.basename(file_path)} 的列数不匹配（期望{len(column_names)}列，实际{df.shape[1]}列），已跳过该文件")
+                continue
+
+            # 设置表头
+            df.columns = column_names
             all_data.append(df)
             print(f"成功读取：{os.path.basename(file_path)}（{len(df)} 行数据）")
+
         except Exception as e:
             print(f"警告：读取 {os.path.basename(file_path)} 失败 - {str(e)}，已跳过该文件")
 

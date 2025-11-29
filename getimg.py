@@ -1,4 +1,5 @@
 # 获取一个手势的特征与标签，并写入CSV文件
+# 设置手势标签与保存位置，运行程序，按下's'键保存，'q'键退出
 import cv2
 import mediapipe as mp
 import time

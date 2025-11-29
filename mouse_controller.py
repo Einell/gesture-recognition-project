@@ -19,7 +19,7 @@ class GestureMouseController:
         except:
             self.W_SCREEN, self.H_SCREEN = 1920, 1080
 
-        self.frameR = 100  #帧缩减像素，控制映射框的大小，frameR越大框越小，鼠标控制越灵敏
+        self.frameR = 100  #帧缩减像素，修改控制框的大小，frameR越大框越小，鼠标控制越灵敏
         self.smoothening = 5  # 平滑系数，值越大越平滑，但延迟越高
 
         # 追踪上一帧的鼠标位置，用于平滑
@@ -31,52 +31,43 @@ class GestureMouseController:
         self.SCROLL_SENSITIVITY = 150 # 滚动速度
         self.SCROLL_THRESHOLD = 0.015 # 滚动阈值，值越小越灵敏
 
+    # 鼠标控制
     def right_mouse(self, hand_landmarks, img_shape):
         if not hand_landmarks:
             return
 
         hCam, wCam, _ = img_shape
 
-        # 1. 获取食指指尖 (Landmark 8) 的坐标
-        # 注意：这里我们将其转换为像素坐标，以便使用 Frame Reduction 逻辑
+        # 获取食指指尖lm8的坐标
         index_tip = hand_landmarks.landmark[8]
         x1 = int(index_tip.x * wCam)
         y1 = int(index_tip.y * hCam)
 
-        # 2. 坐标转换 (核心逻辑：将 FrameR 区域映射到屏幕分辨率)
-        # np.interp(当前值, [输入范围下限, 输入范围上限], [输出范围下限, 输出范围上限])
-
-        # X轴映射：注意 wCam - self.frameR 是为了处理镜像翻转后的逻辑
-        # 如果你觉得鼠标左右反了，可以调整 x1 的输入范围
+        # 坐标转换，将控制区域映射到屏幕分辨率
         x3 = np.interp(x1, (self.frameR, wCam - self.frameR), (0, self.W_SCREEN))
-
-        # Y轴映射
         y3 = np.interp(y1, (self.frameR, hCam - self.frameR), (0, self.H_SCREEN))
 
-        # 3. 平滑处理 (Smoothen Values)
-        # 当前位置 = 上次位置 + (目标位置 - 上次位置) / 平滑系数
+        # 平滑处理
         self.clocX = self.plocX + (x3 - self.plocX) / self.smoothening
         self.clocY = self.plocY + (y3 - self.plocY) / self.smoothening
 
-        # 4. 边界限制 (防止坐标溢出)
+        # 边界限制
         self.clocX = np.clip(self.clocX, 0, self.W_SCREEN)
         self.clocY = np.clip(self.clocY, 0, self.H_SCREEN)
 
-        # 5. 移动鼠标
-        # pyautogui.moveTo(x, y)
-        # 使用 int() 确保坐标是整数
-        final_x = self.W_SCREEN - self.clocX
+        # 移动鼠标
         pyautogui.moveTo(self.clocX, self.clocY)
-        # 6. 更新上一帧位置
+
+        # 更新上一帧位置
         self.plocX, self.plocY = self.clocX, self.clocY
 
-    # --- 点击和滚动保持不变，或者根据需要微调 ---
+    # 鼠标左键点击
     def right_mouse_left_click(self):
         pyautogui.click(button='left')
-
+    # 鼠标右键点击
     def right_mouse_right_click(self):
         pyautogui.click(button='right')
-
+    # 鼠标滚轮控制
     def scroll_mouse(self, hand_landmarks):
         if not hand_landmarks:
             return
@@ -90,24 +81,16 @@ class GestureMouseController:
             pyautogui.scroll(scroll_amount)
         self.prev_scroll_y = current_scroll_y
 
-
-# 实例化控制器
+# 实例化
 MOUSE_CONTROLLER = GestureMouseController()
 
 
-# --- 模块对外接口 ---
+# 接口
 def move_mouse(hand_landmarks, img_shape):
-    # 注意：这里新增了 img_shape 参数
     MOUSE_CONTROLLER.right_mouse(hand_landmarks, img_shape)
-
-
 def left_click():
     MOUSE_CONTROLLER.right_mouse_left_click()
-
-
 def right_click():
     MOUSE_CONTROLLER.right_mouse_right_click()
-
-
 def scroll_mouse(hand_landmarks):
     MOUSE_CONTROLLER.scroll_mouse(hand_landmarks)
