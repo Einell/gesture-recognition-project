@@ -1,31 +1,26 @@
+# 这是一个基于SVM的静态手势识别程序
 import cv2
 import mediapipe as mp
 import time
 import numpy as np
 import joblib
-import gesture_control as control
+import gesture_control as control # 手势控制
 import threading
-# 引入 mouse_controller 以便获取 frameR 参数用于绘图
-import mouse_controller as mc
+import mouse_controller as mc # 鼠标控制
 
-# ================= 配置区域 =================
-PROBABILITY_THRESHOLD = 0.8
-MODEL_PATH = 'gesture_svm_model.pkl'
-CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'}
-
-# 定义哪些手势是“实时”的（需要在主线程运行以保证平滑）
-# 这些手势通常对应鼠标移动或音量调节
-CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'}
-
-
-# ================= 类定义 =================
+PROBABILITY_THRESHOLD = 0.8  # 置信概率阈值
+MODEL_PATH = 'gesture_svm_model.pkl' # 模型文件路径
+CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'} # 实时手势
+CONSECUTIVE_THRESHOLD = 5  # 连续帧阈值
+current_gesture = None # 当前手势
+consecutive_count = 0 # 连续帧计数器
 
 class HandSmoother:
-    """平滑滤波类，减少关键点抖动"""
+    # 平滑滤波类，减少关键点抖动
 
     def __init__(self, alpha=0.6):
-        self.alpha = alpha
-        self.prev_landmarks = None
+        self.alpha = alpha # 平滑因子，控制当前帧与前一帧数据的权重比例
+        self.prev_landmarks = None # 上一帧数据
 
     def smooth(self, current_landmarks_proto):
         current_data = np.array([[lm.x, lm.y, lm.z] for lm in current_landmarks_proto.landmark])
@@ -33,7 +28,7 @@ class HandSmoother:
             self.prev_landmarks = current_data
             return current_landmarks_proto
 
-        # 指数移动平均 (EMA)
+        # 指数移动平均公式
         smoothed_data = self.alpha * current_data + (1 - self.alpha) * self.prev_landmarks
         self.prev_landmarks = smoothed_data
 
@@ -43,24 +38,15 @@ class HandSmoother:
             lm.z = smoothed_data[i, 2]
         return current_landmarks_proto
 
-
 class AsyncExecutor:
-    """
-    多线程执行器
-    用于处理包含 time.sleep 的耗时操作，防止阻塞视频主循环
-    """
+    # 多线程执行器
 
     def __init__(self):
-        self.is_running = False  # 标记是否有后台任务正在运行
-        self.lock = threading.Lock()
+        self.is_running = False  # 是否有后台任务正在运行
+        self.lock = threading.Lock() # 线程锁
 
     def run(self, task_func, args=()):
-        """
-        尝试执行任务。
-        如果当前没有任务在运行，则启动新线程。
-        如果已有任务在运行（例如正在sleep），则忽略本次请求（防抖）。
-        """
-        # 检查锁状态，非阻塞式获取
+        #尝试执行任务，如没有任务运行，则启动新线程。如有任务在运行，则忽略本次请求。
         if not self.is_running:
             # 启动线程
             t = threading.Thread(target=self._worker, args=(task_func, args))
@@ -81,10 +67,7 @@ class AsyncExecutor:
             with self.lock:
                 self.is_running = False
 
-
-# ================= 主程序初始化 =================
-
-# 1. 加载模型
+# 加载模型
 try:
     svm_model = joblib.load(MODEL_PATH)
     print(f"成功加载模型: {MODEL_PATH}")
@@ -93,21 +76,20 @@ except FileNotFoundError:
     print(f"错误: 未找到模型文件 '{MODEL_PATH}'")
     exit(1)
 
-# 2. 初始化 MediaPipe
+# 初始化MediaPipe
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(
-    static_image_mode=False,
-    max_num_hands=1,
-    min_detection_confidence=0.7,
-    min_tracking_confidence=0.7
+    static_image_mode=False, # 非静态图片
+    max_num_hands=1, # 最多检测1只手
+    min_detection_confidence=0.7, # 检测模型置信度
+    min_tracking_confidence=0.7 # 跟踪模型置信度
 )
 mpDRaw = mp.solutions.drawing_utils
-handLmsStyle = mpDRaw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
-handConnStyle = mpDRaw.DrawingSpec(color=(0, 0, 255), thickness=2)
+handLmsStyle = mpDRaw.DrawingSpec(color=(244, 208, 0), thickness=2, circle_radius=3) # 手指关键点样式
+handConnStyle = mpDRaw.DrawingSpec(color=(254, 254, 254), thickness=2) # 手指连线样式
 
-# 3. 初始化工具类
-hand_smoother = HandSmoother(alpha=0.6)
-async_executor = AsyncExecutor()
+hand_smoother = HandSmoother(alpha=0.6) # 创建平滑滤波器
+async_executor = AsyncExecutor() # 创建多线程执行器
 
 
 # 4. 特征提取函数
@@ -129,9 +111,7 @@ def extract_and_normalize_features(hand_landmarks):
 
 
 # 5. 状态变量
-CONSECUTIVE_THRESHOLD = 5  # 连续帧阈值
-current_gesture = None
-consecutive_count = 0
+
 
 # 6. 打开摄像头
 cap = cv2.VideoCapture(0)
