@@ -13,6 +13,10 @@ import sys
 import threading
 from pathlib import Path
 
+# ── 全局变量 ───────────────────────────────────
+_current_proc = None
+_stop_playing = False
+
 # ── 默认配置（可被参数覆盖）───────────────────────
 DEFAULT_MUSIC_FILE = "/Users/ein/Music/Music/music.mp3"
 DEFAULT_DURATION = 10.0  # 秒
@@ -52,10 +56,27 @@ def stop_all_afplay():
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def stop_playback(verbose=True):
+    """停止当前播放（供外部调用）
+
+    参数:
+        verbose (bool): 是否打印日志，默认为 True
+    """
+    global _stop_playing, _current_proc
+    _stop_playing = True
+    if _current_proc:
+        safe_terminate(_current_proc)
+        stop_all_afplay()
+        _current_proc = None
+        if verbose:
+            print("⏹ 音乐播放已停止（手势控制）")
+    return True
+
+
 # ── 主播放函数（对外 API）────────────────────────
 def play(music_file=None, duration=None, verbose=True):
     """
-    播放音乐（10 秒后自动停止）
+    播放音乐（10 秒后自动停止，可通过手势停止）
 
     参数:
         music_file (str | Path): 音乐文件路径，默认为 DEFAULT_MUSIC_FILE
@@ -65,6 +86,8 @@ def play(music_file=None, duration=None, verbose=True):
     返回:
         bool: True 表示启动成功
     """
+    global _current_proc, _stop_playing
+
     music_file = Path(music_file or DEFAULT_MUSIC_FILE)
     duration = duration or DEFAULT_DURATION
 
@@ -73,35 +96,46 @@ def play(music_file=None, duration=None, verbose=True):
             print(f"❌ 音乐文件不存在: {music_file}")
         return False
 
+    # 重置停止标志
+    _stop_playing = False
+
     # 后台播放逻辑（不阻塞调用线程）
     def _play_task():
+        global _current_proc, _stop_playing
+
         try:
             if verbose:
                 total_dur = get_duration(music_file)
                 display_total = f"{int(total_dur) // 60:02d}:{int(total_dur) % 60:02d}" if total_dur else "??"
-                print(f"🎵 开始播放: {music_file.name} | 自动停止: {duration} 秒")
+                print(f"🎵 开始播放: {music_file.name} | 自动停止: {duration} 秒 | 使用暂停手势可停止")
 
             proc = subprocess.Popen(
                 ["afplay", "-v", "1.0", str(music_file)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
+            _current_proc = proc
 
             start_time = time.time()
-            while proc.poll() is None:
+            while proc.poll() is None and not _stop_playing:
                 if time.time() - start_time >= duration:
                     break
                 time.sleep(0.1)
 
             safe_terminate(proc)
             stop_all_afplay()
+            _current_proc = None
 
             if verbose:
-                print("⏹ 音乐播放已停止")
+                if _stop_playing:
+                    print("⏹ 音乐播放已提前停止（手势控制）")
+                else:
+                    print("⏹ 音乐播放已停止")
 
         except Exception as e:
             if verbose:
                 print(f"⚠️ 播放异常: {e}")
+            _current_proc = None
 
     # 启动后台线程
     thread = threading.Thread(target=_play_task, daemon=True, name="MusicPlayer")
@@ -125,5 +159,14 @@ if __name__ == "__main__":
         duration=args.duration,
         verbose=True
     )
+
+    if success:
+        # 等待播放结束
+        try:
+            while _current_proc and _current_proc.poll() is None and not _stop_playing:
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            stop_playback()
+
     if not success:
         sys.exit(1)

@@ -24,5 +24,12 @@
     "left_back": "esc",
 
     "left_L": ["cmd", "shift", "3"],
-    "right_L": ["cmd", "shift", "3"]
+    "right_L": ["cmd", "shift", "3"],
+
+    "zoom_in": ["cmd", "+"],
+    "zoom_out": ["cmd", "-"],
+
+    "open": ["f"],
+    "close": ["f"]
+
 }
