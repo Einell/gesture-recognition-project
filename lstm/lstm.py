@@ -1,24 +1,30 @@
 # 基于LSTM的手势分类，训练+评估
 import pandas as pd
 import numpy as np
+import os
+
+# 设置环境变量使用 Keras 2
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
+
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
-from tensorflow.keras.callbacks import EarlyStopping  # 引入 EarlyStopping
-from tensorflow.keras.optimizers.legacy import Adam as LegacyAdam
-import os
+from tensorflow.keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # 参数
-CSV_FILE = 'gestures_lstm-3.csv' # 数据文件
-MODEL_PATH = 'gesture_lstm_model.keras' # 模型保存路径
-SEQUENCE_LENGTH = 20 # 序列长度
-FEATURES_PER_FRAME = 126 # 单帧特征长度
+CSV_FILE = 'gestures_lstm-3.csv'  # 数据文件
+MODEL_PATH = 'gesture_lstm_model.h5'  # 修改为 .h5 格式，更兼容
+SEQUENCE_LENGTH = 20  # 序列长度
+FEATURES_PER_FRAME = 126  # 单帧特征长度
+
 
 # 绘制训练历史
 def plot_training_history(history):
@@ -43,6 +49,7 @@ def plot_training_history(history):
     plt.savefig('training_history.png', dpi=300, bbox_inches='tight')
     plt.show()
 
+
 # 绘制混淆矩阵
 def plot_confusion_matrix(y_true, y_pred, classes):
     cm = confusion_matrix(y_true, y_pred)
@@ -55,6 +62,7 @@ def plot_confusion_matrix(y_true, y_pred, classes):
     plt.tight_layout()
     plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
     plt.show()
+
 
 # 评估模型
 def evaluate_model(model, X_test, y_test, classes):
@@ -72,14 +80,15 @@ def evaluate_model(model, X_test, y_test, classes):
     plot_confusion_matrix(y_true, y_pred, classes)
     return loss, accuracy, y_pred, y_true
 
+
 def main():
     if not os.path.exists(CSV_FILE):
         print(f"未找到数据文件: {CSV_FILE}")
         return
 
-    TOTAL_FEATURES = SEQUENCE_LENGTH * FEATURES_PER_FRAME # 特征总数
-    dtype_dict = {i: np.float32 for i in range(TOTAL_FEATURES)} # 设置数据类型
-    dtype_dict[TOTAL_FEATURES] = str # 设置最后一列label为字符串
+    TOTAL_FEATURES = SEQUENCE_LENGTH * FEATURES_PER_FRAME
+    dtype_dict = {i: np.float32 for i in range(TOTAL_FEATURES)}
+    dtype_dict[TOTAL_FEATURES] = str
     df = pd.read_csv(CSV_FILE, header=None, dtype=dtype_dict, skiprows=1)
 
     # 清理缺失值
@@ -93,7 +102,6 @@ def main():
     X_raw = df.iloc[:, :-1].values.astype(np.float32)
     y_raw = df.iloc[:, -1].values
 
-    # 将一维的手势特征数据重塑为LSTM模型所需的三维时序数据格式
     # 重塑 X 到 (samples, timesteps, features)
     n_samples = X_raw.shape[0]
     X = X_raw.reshape(n_samples, SEQUENCE_LENGTH, FEATURES_PER_FRAME)
@@ -107,46 +115,48 @@ def main():
     np.save('lstm_classes.npy', classes)
 
     # 划分数据集
-    X_train, X_test, y_train, y_test = train_test_split(X, y_categorical, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y_categorical, test_size=0.2, random_state=42
+    )
 
-    # 构建模型
+    # ============ 使用简单的 Sequential 模型 ============
+    print("构建LSTM模型...")
+
+    # 使用 Sequential 模型（最简单，最兼容）
     model = Sequential([
-        # 第一层LSTM
-        LSTM(128, return_sequences=True, activation='tanh', input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
-        # 第二层LSTM
+        LSTM(128, return_sequences=True, activation='tanh',
+             input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
         LSTM(256, return_sequences=False, activation='tanh'),
-        # 随机30%神经元失活，防止过拟合
         Dropout(0.3),
-        # 全连接层
         Dense(128, activation='relu'),
-        # 输出层
         Dense(len(classes), activation='softmax')
     ])
 
-    custom_optimizer = LegacyAdam(learning_rate=0.001) # 学习率0.001
+    # 使用标准 Adam 优化器（不要用 legacy）
+    model.compile(
+        optimizer='adam',  # 直接使用字符串
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
 
-    # 编译配置好的LSTM模型
-    # 参数说明：
-    # optimizer=custom_optimizer 使用定义的LegacyAdam优化器来更新模型权重
-    # loss='categorical_crossentropy' 使用多分类交叉熵作为损失函数
-    # metrics=['accuracy'] 使用准确率作为评估指标
-    model.compile(optimizer=custom_optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    # 打印模型摘要
+    model.summary()
 
     # 添加早停
     early_stopping = EarlyStopping(
-        monitor='val_loss', # 监控的指标
-        patience=15,  # 容忍 15 轮没有改善，然后停止
-        restore_best_weights=True  # 停止后恢复到最佳权重
+        monitor='val_loss',
+        patience=15,
+        restore_best_weights=True
     )
 
     print("开始训练...")
     history = model.fit(
         X_train, y_train,
-        epochs=50, # 训练轮数
-        batch_size=16, # 批量大小
+        epochs=50,
+        batch_size=16,
         validation_data=(X_test, y_test),
-        callbacks=[early_stopping],  # 启用早停
-        verbose = 1 # 显示训练进度
+        callbacks=[early_stopping],
+        verbose=1
     )
 
     # 绘制训练历史
@@ -176,6 +186,8 @@ def main():
         f.write(f"类别数量: {len(classes)}\n")
         f.write(f"类别列表: {list(classes)}\n")
         f.write(f"总训练轮次: {len(history.history['accuracy'])}\n")
+
+    print("\n✅ 训练完成！")
 
 
 if __name__ == '__main__':
