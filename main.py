@@ -23,7 +23,7 @@ SVM_STABILITY_FRAMES = 5 # 连续帧数
 # 连续静态手势：移动鼠标，鼠标滚轮和音量控制
 STATIC_CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'}
 # 动态LSTM配置
-LSTM_MODEL_PATH = 'gesture_lstm_model.keras'
+LSTM_MODEL_PATH = 'gesture_lstm_model.h5'
 LSTM_CLASSES_PATH = 'lstm_classes.npy'
 LSTM_SEQ_LENGTH = 20 # 序列长度
 LSTM_PROB_THRESHOLD = 0.8 # 概率阈值
@@ -33,6 +33,37 @@ MOVEMENT_BUFFER_SIZE = 10 # 检测历史数据长度
 MOVEMENT_THRESHOLD = 0.015 # 鼠标控制阈值，阈值调高：降低灵敏度，让鼠标操作更难触发动态模式
 
 
+def load_compatible_model(model_path):
+    """兼容性加载模型"""
+    try:
+        # 最简单的方法：使用 compile=False
+        model = load_model(model_path, compile=False)
+        return model
+    except Exception as e:
+        print(f"简单加载失败: {e}")
+        # 如果还是失败，尝试更复杂的修复
+        pass
+
+    # 如果简单方法失败，尝试忽略不支持的参数
+    from tensorflow.keras.models import load_model as keras_load_model
+    from tensorflow.keras.layers import LSTM
+
+    custom_objects = {
+        'LSTM': lambda *args, **kwargs: LSTM(
+            *args,
+            **{k: v for k, v in kwargs.items()
+               if k not in ['batch_input_shape', 'time_major', 'unroll']}
+        )
+    }
+
+    try:
+        model = keras_load_model(model_path,
+                                 custom_objects=custom_objects,
+                                 compile=False)
+        return model
+    except Exception as e:
+        print(f"自定义加载也失败: {e}")
+        raise
 # 运动检测器
 class HandMotionDetector:
     def __init__(self, buffer_size=10, threshold=0.015):
@@ -151,7 +182,18 @@ def main():
     # 加载模型
     try:
         svm_model = joblib.load(SVM_MODEL_PATH)
-        lstm_model = load_model(LSTM_MODEL_PATH)
+
+        # 使用兼容性加载
+        lstm_model = load_compatible_model(LSTM_MODEL_PATH)
+
+        # 如果需要，可以重新编译（可选）
+        try:
+            lstm_model.compile(optimizer='adam',
+                               loss='categorical_crossentropy',
+                               metrics=['accuracy'])
+        except:
+            pass  # 如果已经有编译信息，跳过
+
         lstm_classes = np.load(LSTM_CLASSES_PATH, allow_pickle=True)
         print(f"模型加载完毕。\nSVM: {svm_model.classes_}\nLSTM: {lstm_classes}")
     except Exception as e:
