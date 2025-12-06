@@ -8,23 +8,21 @@ import joblib
 import threading
 from collections import deque
 from tensorflow.keras.models import load_model
-
-# 引入你的控制脚本
-import gesture_control as control
-import mouse_controller as mc
+import src.controllers.gesture_control as control
+import src.controllers.mouse_controller as mc
 
 # 配置
 # 窗口大小
-CAMERA_WIDTH, CAMERA_HEIGHT = 640, 400
+CAMERA_WIDTH, CAMERA_HEIGHT = 1280, 800
 # 静态SVM配置
-SVM_MODEL_PATH = 'gesture_svm_model.pkl'
+SVM_MODEL_PATH = 'models/SVM/gesture_svm_model.pkl'
 SVM_PROB_THRESHOLD = 0.7 # 概率阈值
 SVM_STABILITY_FRAMES = 5 # 连续帧数
 # 连续静态手势：移动鼠标，鼠标滚轮和音量控制
 STATIC_CONTINUOUS_GESTURES = {'right_mouse', 'right_mouse_roll', 'volume_control'}
 # 动态LSTM配置
-LSTM_MODEL_PATH = 'gesture_lstm_model.h5'
-LSTM_CLASSES_PATH = 'lstm_classes.npy'
+LSTM_MODEL_PATH = 'models/LSTM/gesture_lstm_model.h5'
+LSTM_CLASSES_PATH = 'models/LSTM/lstm_classes.npy'
 LSTM_SEQ_LENGTH = 20 # 序列长度
 LSTM_PROB_THRESHOLD = 0.8 # 概率阈值
 LSTM_COOLDOWN = 1.0 # 冷却时间
@@ -32,19 +30,15 @@ LSTM_COOLDOWN = 1.0 # 冷却时间
 MOVEMENT_BUFFER_SIZE = 10 # 检测历史数据长度
 MOVEMENT_THRESHOLD = 0.015 # 鼠标控制阈值，阈值调高：降低灵敏度，让鼠标操作更难触发动态模式
 
-
+# 加载模型
 def load_compatible_model(model_path):
-    """兼容性加载模型"""
     try:
-        # 最简单的方法：使用 compile=False
         model = load_model(model_path, compile=False)
         return model
     except Exception as e:
         print(f"简单加载失败: {e}")
-        # 如果还是失败，尝试更复杂的修复
         pass
 
-    # 如果简单方法失败，尝试忽略不支持的参数
     from tensorflow.keras.models import load_model as keras_load_model
     from tensorflow.keras.layers import LSTM
 
@@ -62,7 +56,7 @@ def load_compatible_model(model_path):
                                  compile=False)
         return model
     except Exception as e:
-        print(f"自定义加载也失败: {e}")
+        print(f"自定义加载失败: {e}")
         raise
 # 运动检测器
 class HandMotionDetector:
@@ -186,13 +180,12 @@ def main():
         # 使用兼容性加载
         lstm_model = load_compatible_model(LSTM_MODEL_PATH)
 
-        # 如果需要，可以重新编译（可选）
         try:
             lstm_model.compile(optimizer='adam',
                                loss='categorical_crossentropy',
                                metrics=['accuracy'])
         except:
-            pass  # 如果已经有编译信息，跳过
+            pass
 
         lstm_classes = np.load(LSTM_CLASSES_PATH, allow_pickle=True)
         print(f"模型加载完毕。\nSVM: {svm_model.classes_}\nLSTM: {lstm_classes}")
