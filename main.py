@@ -13,7 +13,7 @@ import src.controllers.mouse_controller as mc
 
 # 配置
 # 窗口大小
-CAMERA_WIDTH, CAMERA_HEIGHT = 1280, 800
+CAMERA_WIDTH, CAMERA_HEIGHT = 640, 400
 # 静态SVM配置
 SVM_MODEL_PATH = 'models/SVM/gesture_svm_model.pkl'
 SVM_PROB_THRESHOLD = 0.7 # 概率阈值

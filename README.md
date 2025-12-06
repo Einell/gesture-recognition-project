@@ -75,6 +75,8 @@ Gesture_recognition/
 │   ├── data_collections/        # 数据采集，包括动态和静态手势数据采集
 │   └── utils/        # 数据合并工具，用于将静态手势数据与动态手势数据合并
 ├── tests/                   # 测试脚本
+├── resources/                   # 音乐文件
+├── demo/                   # 演示
 ├── requirements.txt         # 依赖列表
 ├── README.md         # 项目说明
 └── main.py           # 系统启动主程序

@@ -1,5 +1,7 @@
 # 获取LSTM特征
 # 输入手势标签与存放路径，运行程序，按下'r'开始录制，按'q'退出
+import re
+
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -53,7 +55,7 @@ def extract_dual_hand_features(results):
             normalized = translated / max_distance
         else:
             normalized = translated
-        normalized.flatten().reshape(1, -1)  # 将特征展平为1维向量
+        normalized = normalized.flatten().reshape(1, -1)  # 将特征展平为1维向量
 
         # 左右手写入
         if handedness == 'Left':
@@ -70,7 +72,14 @@ def main():
     if not GESTURE_LABEL:
         print("手势标签不能为空！")
         return
+    # 验证标签名称（只允许字母、数字、下划线和连字符）
+    if not re.match(r'^[a-zA-Z0-9_-]+$', GESTURE_LABEL):
+        print("手势标签只能包含字母、数字、下划线和连字符！")
+        return
 
+    # 确保目录存在
+    output_dir = '../../data/LSTM_data'
+    os.makedirs(output_dir, exist_ok=True)
     OUTPUT_CSV_PATH = f'../../data/LSTM_data/{GESTURE_LABEL}.csv'
 
 
