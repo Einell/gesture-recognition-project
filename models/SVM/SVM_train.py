@@ -289,7 +289,43 @@ def plot_feature_importance(model, class_names):
     plt.tight_layout()
     plt.show()
 
+# 绘制降维后的测试集分类点图
+def plot_pca_scatter(X_test, y_test, class_names):
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
 
+    print("\n正在进行 PCA 降维...")
+    # 初始化 PCA 将数据降至 2 维
+    pca = PCA(n_components=2)
+    # 仅在测试集上进行转换
+    X_test_2d = pca.fit_transform(X_test)
+
+    plt.figure(figsize=(10, 8))
+
+    # 绘制点图
+    unique_classes = np.unique(y_test)
+    colors = plt.cm.get_cmap('viridis', len(unique_classes))
+
+    for i, cls in enumerate(unique_classes):
+        # 筛选出当前类别的数据点
+        indices = y_test == cls
+        plt.scatter(
+            X_test_2d[indices, 0],
+            X_test_2d[indices, 1],
+            label=cls,
+            color=colors(i),
+            alpha=0.6,
+            edgecolors='w',
+            s=50
+        )
+
+    plt.title('Test Data Scatter Plot (PCA Reduced to 2D)', fontsize=16, fontweight='bold')
+    plt.xlabel(f'Principal Component 1 (Explained Variance: {pca.explained_variance_ratio_[0]:.2f})', fontsize=12)
+    plt.ylabel(f'Principal Component 2 (Explained Variance: {pca.explained_variance_ratio_[1]:.2f})', fontsize=12)
+    plt.legend(title="True Class", loc='best')
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 print("\n正在生成基础混淆矩阵热力图...")
 plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
@@ -301,7 +337,7 @@ plot_classification_report(y_test, y_pred, np.unique(y))
 
 # 归一化混淆矩阵
 print("\n正在生成归一化混淆矩阵...")
-plot_normalized_confusion_matrix(y_test, y_pred, np.unique(y))
+# plot_normalized_confusion_matrix(y_test, y_pred, np.unique(y))
 
 # 每个类别的准确率
 # print("\n正在生成类别准确率图...")
@@ -310,18 +346,19 @@ plot_normalized_confusion_matrix(y_test, y_pred, np.unique(y))
 # ROC曲线
 print("\n正在生成ROC曲线...")
 plot_roc_curves(X_test, y_test, svm_classifier, np.unique(y))
-
+print("\n正在生成 PCA 降维后的点图...")
+plot_pca_scatter(X_test, y_test, np.unique(y))
 # 学习曲线
-# print("\n正在生成学习曲线...")
-# plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
+print("\n正在生成学习曲线...")
+plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
 
 # 精确率-召回率曲线
-# print("\n正在生成精确率-召回率曲线...")
-# plot_precision_recall_curve(X_test, y_test, svm_classifier, np.unique(y))
+print("\n正在生成精确率-召回率曲线...")
+plot_precision_recall_curve(X_test, y_test, svm_classifier, np.unique(y))
 
 # 预测置信度分布
-# print("\n正在生成预测置信度分布...")
-# plot_prediction_confidence(X_test, svm_classifier)
+print("\n正在生成预测置信度分布...")
+plot_prediction_confidence(X_test, svm_classifier)
 
 # 特征重要性
 # print("\n正在生成特征重要性图...")

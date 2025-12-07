@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # 参数
-CSV_FILE = '../../data/gestures_lstm-3.csv'  # 数据文件
+CSV_FILE = '../../data/gestures_lstm.csv'  # 数据文件
 MODEL_PATH = 'gesture_lstm_model.h5'  # 模型路径
 SEQUENCE_LENGTH = 20  # 序列长度
 FEATURES_PER_FRAME = 126  # 单帧特征长度
@@ -30,16 +30,16 @@ FEATURES_PER_FRAME = 126  # 单帧特征长度
 def plot_training_history(history):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
     # 绘制准确率曲线
-    ax1.plot(history.history['accuracy'], label='训练准确率')
-    ax1.plot(history.history['val_accuracy'], label='验证准确率')
+    ax1.plot(history.history['accuracy'], label='train accuracy')
+    ax1.plot(history.history['val_accuracy'], label='Verification accuracy')
     ax1.set_title('Model Accuracy')
     ax1.set_xlabel('Epochs')
     ax1.set_ylabel('Accuracy')
     ax1.legend()
     ax1.grid(True)
     # 绘制损失曲线
-    ax2.plot(history.history['loss'], label='训练损失')
-    ax2.plot(history.history['val_loss'], label='验证损失')
+    ax2.plot(history.history['loss'], label='train loss')
+    ax2.plot(history.history['val_loss'], label='Verification')
     ax2.set_title('Model Loss')
     ax2.set_xlabel('Epochs')
     ax2.set_ylabel('Loss')
