@@ -50,7 +50,7 @@ print(f"训练集: {X_train.shape}, 测试集: {X_test.shape}")
 print("\n正在初始化并训练SVM模型...")
 # 参数说明:
 # C: 惩罚系数，控制模型复杂度；kernel: 核函数；gamma: 'rbf'核的带宽参数；class_weight: 'balanced' 会给样本量较少的类别赋予更大的权重，有助于处理不平衡数据集
-svm_classifier = SVC(C=1.0, kernel='rbf', gamma='scale', class_weight='balanced', random_state=random_state,
+svm_classifier = SVC(C=30.0,kernel='rbf', gamma='scale', class_weight='balanced', random_state=random_state,
                      probability=True)
 
 # 训练模型
@@ -333,11 +333,11 @@ plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
 
 # 分类报告热力图
 print("\n正在生成分类报告热力图...")
-plot_classification_report(y_test, y_pred, np.unique(y))
+# plot_classification_report(y_test, y_pred, np.unique(y))
 
 # 归一化混淆矩阵
 print("\n正在生成归一化混淆矩阵...")
-# plot_normalized_confusion_matrix(y_test, y_pred, np.unique(y))
+plot_normalized_confusion_matrix(y_test, y_pred, np.unique(y))
 
 # 每个类别的准确率
 # print("\n正在生成类别准确率图...")
@@ -345,20 +345,20 @@ print("\n正在生成归一化混淆矩阵...")
 
 # ROC曲线
 print("\n正在生成ROC曲线...")
-plot_roc_curves(X_test, y_test, svm_classifier, np.unique(y))
+# plot_roc_curves(X_test, y_test, svm_classifier, np.unique(y))
 print("\n正在生成 PCA 降维后的点图...")
-plot_pca_scatter(X_test, y_test, np.unique(y))
+# plot_pca_scatter(X_test, y_test, np.unique(y))
 # 学习曲线
 print("\n正在生成学习曲线...")
-plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
+# plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
 
 # 精确率-召回率曲线
 print("\n正在生成精确率-召回率曲线...")
-plot_precision_recall_curve(X_test, y_test, svm_classifier, np.unique(y))
+# plot_precision_recall_curve(X_test, y_test, svm_classifier, np.unique(y))
 
 # 预测置信度分布
 print("\n正在生成预测置信度分布...")
-plot_prediction_confidence(X_test, svm_classifier)
+# plot_prediction_confidence(X_test, svm_classifier)
 
 # 特征重要性
 # print("\n正在生成特征重要性图...")
