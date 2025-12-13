@@ -146,7 +146,7 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
         # 打个响指，播放音乐
         elif gesture in ("right_snap", "left_snap"):
             # playmusic.play()
-            playmusic.play("../../resources/music.mp3", duration=10.0) # 自定义音乐路径与时长
+            playmusic.play("/Users/ein/Desktop/Python/Gesture_recognition/resources/music.mp3", duration=10.0) # 自定义音乐路径与时长
             print("播放音乐")
             time.sleep(1.5)
             return

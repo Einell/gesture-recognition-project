@@ -7,7 +7,7 @@ import numpy as np
 import joblib
 import threading
 from collections import deque
-from tensorflow.keras.models import load_model
+from keras.models import load_model
 import src.controllers.gesture_control as control
 import src.controllers.mouse_controller as mc
 
@@ -39,8 +39,8 @@ def load_compatible_model(model_path):
         print(f"简单加载失败: {e}")
         pass
 
-    from tensorflow.keras.models import load_model as keras_load_model
-    from tensorflow.keras.layers import LSTM
+    from keras.models import load_model as keras_load_model
+    from keras.layers import LSTM
 
     custom_objects = {
         'LSTM': lambda *args, **kwargs: LSTM(
