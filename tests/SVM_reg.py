@@ -6,9 +6,9 @@ import mediapipe as mp
 import time
 import numpy as np
 import joblib
-import src.controllers.gesture_control as control # 手势控制
+import src.controllers.gesture_control_for_mac as control # 手势控制
 import threading
-import src.controllers.mouse_controller as mc # 鼠标控制
+import src.controllers.mouse_controller_for_mac as mc # 鼠标控制
 # 参数
 PROBABILITY_THRESHOLD = 0.8  # 置信概率阈值
 MODEL_PATH = '../models/SVM/gesture_svm_model.pkl' # 模型文件路径

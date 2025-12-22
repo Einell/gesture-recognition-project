@@ -8,8 +8,24 @@ import joblib
 import threading
 from collections import deque
 from keras.models import load_model
-import src.controllers.gesture_control as control
-import src.controllers.mouse_controller as mc
+import platform
+
+system_name = platform.system()
+
+if system_name == "Darwin":
+    print("当前系统是 macOS")
+    import src.controllers.gesture_control_for_mac as control
+    import src.controllers.mouse_controller_for_mac as mc
+elif system_name == "Windows":
+    print("当前系统是 Windows")
+    import src.controllers.gesture_control_for_win as control
+    import src.controllers.mouse_controller_for_win as mc
+elif system_name == "Linux":
+    print("当前系统是 Linux")
+    print("暂不支持 Linux！")
+
+else:
+    print(f"其他系统: {system_name}")
 
 # 配置
 # 窗口大小

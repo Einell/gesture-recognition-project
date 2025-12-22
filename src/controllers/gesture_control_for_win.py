@@ -1,34 +1,69 @@
 # 根据手势进行相应操作
-
 import math
 import os
 import time
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from pynput.keyboard import Key, Controller
 import numpy as np
-import src.controllers.mouse_controller as mc # 鼠标控制
-import src.controllers.playmusic as playmusic #音乐控制
+import src.controllers.mouse_controller_for_win as mc # 鼠标控制
+import src.controllers.playmusic_for_win as playmusic #音乐控制
 
 keyboard = Controller()
 # 音量控制
 class VolumeController:
     def __init__(self):
-        self.min_dist = 0.02 # 最小距离
-        self.max_dist = 0.20 # 最大距离
-        self.last_volume = -1 # 上一次音量
+        self.min_dist = 0.02  # 最小距离
+        self.max_dist = 0.20  # 最大距离
+        self.last_volume = -1  # 上一次音量
+
+        # 初始化Windows音频控制
+        self.init_audio_control()
+
+    def init_audio_control(self):
+        try:
+            # 获取默认音频设备
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(
+                IAudioEndpointVolume._iid_,
+                CLSCTX_ALL,
+                None
+            )
+            self.volume = cast(interface, POINTER(IAudioEndpointVolume))
+            print("音频控制初始化成功")
+        except Exception as e:
+            print(f"音频控制初始化失败: {e}")
+            self.volume = None
 
     def set_volume(self, hand_landmarks):
-        if not hand_landmarks: return
-        # 获取拇指和食指指尖的坐标
-        thumb = hand_landmarks.landmark[4]
-        index = hand_landmarks.landmark[8]
-        # 计算距离
-        length = math.hypot(index.x - thumb.x, index.y - thumb.y)
-        # 映射到音量范围
-        vol = np.interp(length, [self.min_dist, self.max_dist], [0, 100])
-        vol = int(vol)
-        if abs(vol - self.last_volume) > 2:
-            os.system(f"osascript -e 'set volume output volume {vol}'")
-            self.last_volume = vol
+        """根据手势设置音量"""
+        if not hand_landmarks or not self.volume:
+            return
+
+        try:
+            # 获取拇指和食指指尖的坐标
+            thumb = hand_landmarks.landmark[4]
+            index = hand_landmarks.landmark[8]
+
+            # 计算距离
+            length = math.hypot(index.x - thumb.x, index.y - thumb.y)
+
+            # 映射到音量范围 (0.0 到 1.0)
+            vol = np.interp(length, [self.min_dist, self.max_dist], [0.0, 1.0])
+            vol = max(0.0, min(1.0, vol))  # 限制在0-1之间
+
+            # 设置音量 (只有变化足够大时才更新)
+            if abs(vol - self.last_volume) > 0.02:  # 2%的变化阈值
+                self.volume.SetMasterVolumeLevelScalar(vol, None)
+                self.last_volume = vol
+
+                # 可选：显示音量百分比
+                vol_percent = int(vol * 100)
+                print(f"音量: {vol_percent}%")
+
+        except Exception as e:
+            print(f"设置音量时出错: {e}")
 
 VOLUME_CONTROLLER = VolumeController()
 
@@ -123,7 +158,7 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
 
         # 保存
         elif gesture == 'right_ok' or gesture == 'left_ok':
-            with keyboard.pressed(Key.cmd):
+            with keyboard.pressed(Key.ctrl):
                 keyboard.press('s')
                 keyboard.release('s')
             print("保存")
@@ -153,7 +188,7 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
 
         # 放大
         elif gesture == "zoom_in":
-            with keyboard.pressed(Key.cmd):
+            with keyboard.pressed(Key.ctrl):
                 keyboard.press('+')
                 keyboard.release('+')
             print("放大")
@@ -162,7 +197,7 @@ def execute_gesture_action(gesture, cap, display_img, hand_landmarks=None):
 
         # 缩小
         elif gesture == "zoom_out":
-            with keyboard.pressed(Key.cmd):
+            with keyboard.pressed(Key.ctrl):
                 keyboard.press('-')
                 keyboard.release('-')
             print("缩小")

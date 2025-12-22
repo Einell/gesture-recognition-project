@@ -8,7 +8,7 @@ import mediapipe as mp
 from tensorflow.keras.models import load_model
 import time
 import threading
-import src.controllers.gesture_control as gesture_control
+import src.controllers.gesture_control_for_mac as gesture_control
 
 # 参数
 MODEL_PATH = '../models/LSTM/gesture_lstm_model.h5'

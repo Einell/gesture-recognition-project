@@ -350,7 +350,7 @@ print("\n正在生成 PCA 降维后的点图...")
 # plot_pca_scatter(X_test, y_test, np.unique(y))
 # 学习曲线
 print("\n正在生成学习曲线...")
-# plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
+plot_learning_curve(X_train, y_train, svm_classifier, np.unique(y))
 
 # 精确率-召回率曲线
 print("\n正在生成精确率-召回率曲线...")
