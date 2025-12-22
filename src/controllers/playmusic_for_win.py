@@ -3,9 +3,6 @@
 # 提供音乐播放、停止接口，支持自定义播放时长后自动关闭
 import subprocess
 import time
-import threading
-import os
-import sys
 from pathlib import Path
 import pygame
 import warnings
@@ -50,7 +47,7 @@ def init_pygame():
 def get_duration(file_path):
     """获取音频文件时长（使用多种方法）"""
     try:
-        # 方法1: 使用 ffprobe（如果已安装）
+        # 方法1: 使用 ffprobe
         try:
             result = subprocess.run([
                 "ffprobe", "-v", "error",
@@ -72,26 +69,6 @@ def get_duration(file_path):
             except:
                 pass
 
-        # 方法3: 使用 mutagen（如果需要，可以安装）
-        try:
-            from mutagen.mp3 import MP3
-            from mutagen.wave import WAVE
-            from mutagen.flac import FLAC
-            from mutagen.oggvorbis import OggVorbis
-
-            if file_path.suffix.lower() == '.mp3':
-                audio = MP3(file_path)
-            elif file_path.suffix.lower() == '.wav':
-                audio = WAVE(file_path)
-            elif file_path.suffix.lower() == '.flac':
-                audio = FLAC(file_path)
-            elif file_path.suffix.lower() in ['.ogg', '.oga']:
-                audio = OggVorbis(file_path)
-            else:
-                return None
-            return audio.info.length
-        except ImportError:
-            pass
 
         return None
     except Exception as e:
@@ -103,7 +80,7 @@ def safe_terminate(proc):
     """安全终止进程"""
     if proc and proc.poll() is None:
         try:
-            # 对于 Windows，先尝试终止，再强制结束
+            # 先尝试终止，再强制结束
             proc.terminate()
             try:
                 proc.wait(timeout=0.5)
@@ -177,7 +154,7 @@ def stop_playback(verbose=True):
 
 
 def play_with_ffplay(music_file, duration, verbose=True):
-    """使用 ffplay 播放音乐（推荐，需要安装 FFmpeg）"""
+    """使用 ffplay 播放音乐"""
     global _current_proc, _stop_playing
 
     try:
@@ -371,12 +348,3 @@ def play(music_file=None, duration=None, verbose=True, method='auto'):
             print("音乐播放已停止")
 
     return success
-
-
-
-if __name__ == "__main__":
-    # 安装依赖的提示
-    print("建议安装以下依赖以获得完整功能:")
-    print("1. FFmpeg (用于 ffplay): https://ffmpeg.org/download.html")
-    print("2. pygame: pip install pygame")
-    print("3. pycaw (音量控制): pip install pycaw comtypes")

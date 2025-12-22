@@ -297,7 +297,7 @@ class EnhancedMouseController:
         x3 = np.interp(x1, (self.frameR, wCam - self.frameR), (0, self.W_SCREEN))
         y3 = np.interp(y1, (self.frameR, hCam - self.frameR), (0, self.H_SCREEN))
 
-        # 鼠标加速（可选）
+        # 鼠标加速
         if self.enable_acceleration:
             distance = np.sqrt((x3 - self.plocX) ** 2 + (y3 - self.plocY) ** 2)
             if distance > 50:  # 快速移动时加速
@@ -305,7 +305,7 @@ class EnhancedMouseController:
                 x3 = self.plocX + (x3 - self.plocX) * acceleration
                 y3 = self.plocY + (y3 - self.plocY) * acceleration
 
-        # 平滑处理（使用历史位置）
+        # 平滑处理
         self.position_history.append((x3, y3))
         if len(self.position_history) > self.MAX_HISTORY:
             self.position_history.pop(0)
